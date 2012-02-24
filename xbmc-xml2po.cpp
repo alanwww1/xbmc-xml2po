@@ -92,14 +92,14 @@
   const char* pValueSourceInput = NULL;
   while (pChildSourceInput)
   {
-        pAttrIdSourceInput=pChildSourceInput->Attribute("id");
+    pAttrIdSourceInput=pChildSourceInput->Attribute("id");
     if (pAttrIdSourceInput && !pChildSourceInput->NoChildren())
     {
       int id = atoi(pAttrIdSourceInput);
       pValueSourceInput = pChildSourceInput->FirstChild()->Value();
       mapXmlData.insert(std::pair<std::string,int>( pValueSourceInput,id));
     }
-        pChildSourceInput = pChildSourceInput->NextSiblingElement("string");
+    pChildSourceInput = pChildSourceInput->NextSiblingElement("string");
   }
 
   // Initalize the output xml document
@@ -108,9 +108,9 @@
   if (pPOTFile == NULL) return 1;
   fprintf(pPOTFile,"# Converted from xbmc strings.xml &amp;");
 
-    pChildSourceInput = pRootElementSourceInput->FirstChildElement("string");
-    pAttrIdSourceInput = NULL;
-    pValueSourceInput = NULL;
+  pChildSourceInput = pRootElementSourceInput->FirstChildElement("string");
+  pAttrIdSourceInput = NULL;
+  pValueSourceInput = NULL;
   int previd = -1;
   while (pChildSourceInput)
   {
