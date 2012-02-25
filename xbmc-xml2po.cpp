@@ -28,64 +28,72 @@
 #endif
 
 #include "tinyxml.h"
-#include "iostream"
+#include "string"
 #include <map>
 
-  int main(int argc, char* argv[])
-  {
-    char* pSourceXMLFilename = NULL;
-    char* pOutputPOFilename = NULL;
-    char* pForeignXMLFilename = NULL;
+FILE * pPOTFile;
+char* pSourceXMLFilename = NULL;
+char* pOutputPOFilename = NULL;
+char* pForeignXMLFilename = NULL;
+TiXmlDocument xmlDocSourceInput;
+TiXmlDocument xmlDocForeignInput;
+bool bHasForeignInput = false;
+std::multimap<std::string, int> mapXmlData;
 
-    // Basic syntax checking for "-x name" format
-    while ((argc > 2) && (argv[1][0] == '-') && (argv[1][1] != '\x00') && (argv[1][2] == '\x00')
-      && (argv[2][0] != '\x00') && (argv[2][0] != '-'))
+bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename)
+{
+  if (!pXMLDoc.LoadFile(pFilename))
+  {
+    printf ("%s %s\n", pXMLDoc.ErrorDesc(), pFilename);
+    return false;
+  }
+
+  TiXmlElement* pRootElement = pXMLDoc.RootElement();
+  if (!pRootElement || pRootElement->NoChildren() || pRootElement->ValueTStr()!="strings")
+  {
+    printf ("error: No root element called: \"strings\" or no child found in input XML file: %s\n", pFilename);
+    return false;
+  }
+  return true;
+}
+
+int main(int argc, char* argv[])
+{
+  // Basic syntax checking for "-x name" format
+  while ((argc > 2) && (argv[1][0] == '-') && (argv[1][1] != '\x00') && (argv[1][2] == '\x00')
+    && (argv[2][0] != '\x00') && (argv[2][0] != '-'))
+  {
+    switch (argv[1][1])
     {
-      switch (argv[1][1])
-      {
-        case 's':
-          --argc; ++argv;
-          pSourceXMLFilename = argv[1];
-          break;
-        case 'o':
-          --argc; ++argv;
-          pOutputPOFilename = argv[1];
-          break;
-        case 'f':
-          --argc; ++argv;
-          pForeignXMLFilename = argv[1];
-          break;
-      }
-      ++argv; --argc;
+    case 's':
+      --argc; ++argv;
+      pSourceXMLFilename = argv[1];
+      break;
+    case 'o':
+      --argc; ++argv;
+      pOutputPOFilename = argv[1];
+      break;
+    case 'f':
+      --argc; ++argv;
+      pForeignXMLFilename = argv[1];
+      break;
     }
+    ++argv; --argc;
+  }
   if ((pSourceXMLFilename == NULL) || (pOutputPOFilename == NULL))
   {
-    printf("Wrong Arguments given !");
+    printf("Wrong Arguments given !\n");
     printf("Usage: xbmc-xml2po -s <name> -o <name> (-f <name>)\n");
     printf("parameter -s <name> for source input English XML filename\n");
     printf("parameter -o <name> for output PO or POT filename\n");
     printf("parameter -f <name> for foreign input XML filename\n");
     return 1;
   }
-  bool bHasForeignInput = pForeignXMLFilename != NULL;
+  bHasForeignInput = pForeignXMLFilename != NULL;
 
-  TiXmlDocument xmlDocSourceInput;
-  if (!xmlDocSourceInput.LoadFile(pSourceXMLFilename))
-  {
-    std::cout << xmlDocSourceInput.ErrorDesc() << " " << pSourceXMLFilename << std::endl;
-    return 1;
-  }
+  if (!loadXMLFile(xmlDocSourceInput, pSourceXMLFilename)) return 1;
 
-  // Check if we really have "strings" root element and we have at least one child element
   TiXmlElement* pRootElementSourceInput = xmlDocSourceInput.RootElement();
-  if (!pRootElementSourceInput || pRootElementSourceInput->NoChildren() ||
-            pRootElementSourceInput->ValueTStr()!="strings")
-  {
-    std::cout << "error: No root element called: strings or no child found in source input XML" << std::endl;
-    return 1;
-  }
-
-  std::multimap<std::string, int> mapXmlData;
 
   const TiXmlElement *pChildSourceInput = pRootElementSourceInput->FirstChildElement("string");
   const char* pAttrIdSourceInput = NULL;
@@ -103,7 +111,6 @@
   }
 
   // Initalize the output xml document
-  FILE * pPOTFile;
   pPOTFile = fopen (pOutputPOFilename,"w");
   if (pPOTFile == NULL) return 1;
   fprintf(pPOTFile,"# Converted from xbmc strings.xml &amp;");
