@@ -38,9 +38,14 @@ char* pForeignXMLFilename = NULL;
 TiXmlDocument xmlDocSourceInput;
 TiXmlDocument xmlDocForeignInput;
 bool bHasForeignInput = false;
-std::multimap<std::string, int> mapXmlData;
+std::multimap<std::string, int> mapSourceXmlStrings;
+std::map<int, std::string> mapSourceXmlId;
+std::map<int, std::string>::iterator itSourceXmlId;
+std::map<int, std::string> mapForeignXmlId;
 
-bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename)
+
+bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename, std::map<int, std::string> * pMapXmlStrings,
+  bool isSourceFile)
 {
   if (!pXMLDoc.LoadFile(pFilename))
   {
@@ -53,6 +58,22 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename)
   {
     printf ("error: No root element called: \"strings\" or no child found in input XML file: %s\n", pFilename);
     return false;
+  }
+
+  const TiXmlElement *pChildElement = pRootElement->FirstChildElement("string");
+  const char* pAttrId = NULL;
+  const char* pValue = NULL;
+  while (pChildElement)
+  {
+    pAttrId=pChildElement->Attribute("id");
+    if (pAttrId && !pChildElement->NoChildren())
+    {
+      int id = atoi(pAttrId);
+      pValue = pChildElement->FirstChild()->Value();
+      mapSourceXmlStrings.insert(std::pair<std::string,int>( pValue,id));
+      (*pMapXmlStrings)[id] = pValue;
+    }
+    pChildElement = pChildElement->NextSiblingElement("string");
   }
   return true;
 }
@@ -91,68 +112,43 @@ int main(int argc, char* argv[])
   }
   bHasForeignInput = pForeignXMLFilename != NULL;
 
-  if (!loadXMLFile(xmlDocSourceInput, pSourceXMLFilename)) return 1;
-
-  TiXmlElement* pRootElementSourceInput = xmlDocSourceInput.RootElement();
-
-  const TiXmlElement *pChildSourceInput = pRootElementSourceInput->FirstChildElement("string");
-  const char* pAttrIdSourceInput = NULL;
-  const char* pValueSourceInput = NULL;
-  while (pChildSourceInput)
-  {
-    pAttrIdSourceInput=pChildSourceInput->Attribute("id");
-    if (pAttrIdSourceInput && !pChildSourceInput->NoChildren())
-    {
-      int id = atoi(pAttrIdSourceInput);
-      pValueSourceInput = pChildSourceInput->FirstChild()->Value();
-      mapXmlData.insert(std::pair<std::string,int>( pValueSourceInput,id));
-    }
-    pChildSourceInput = pChildSourceInput->NextSiblingElement("string");
-  }
+  if (!loadXMLFile(xmlDocSourceInput, pSourceXMLFilename, &mapSourceXmlId, true)) return 1;
 
   // Initalize the output xml document
   pPOTFile = fopen (pOutputPOFilename,"w");
   if (pPOTFile == NULL) return 1;
   fprintf(pPOTFile,"# Converted from xbmc strings.xml &amp;");
 
-  pChildSourceInput = pRootElementSourceInput->FirstChildElement("string");
-  pAttrIdSourceInput = NULL;
-  pValueSourceInput = NULL;
   int previd = -1;
-  while (pChildSourceInput)
+  for (itSourceXmlId = mapSourceXmlId.begin(); itSourceXmlId != mapSourceXmlId.end(); itSourceXmlId++)
   {
-    pAttrIdSourceInput=pChildSourceInput->Attribute("id");
-    if (pAttrIdSourceInput && !pChildSourceInput->NoChildren())
+    int id = itSourceXmlId->first;
+    std::string value = itSourceXmlId->second;
+
+    //create comment note if empty string or strings ids found
+    if (previd !=-1 && (id-previd >= 2))
     {
-      int id=atoi(pAttrIdSourceInput);
-      pValueSourceInput = pChildSourceInput->FirstChild()->Value();
-
-      //create comment note if empty string or strings ids found
-      if (previd !=-1 && (id-previd >= 2))
-      {
-        if (id-previd == 2) fprintf(pPOTFile,"#Empty string with id %i\n\n", id-1);
-        if (id-previd > 2) fprintf(pPOTFile,"#Empty strings from id %i to %i\n\n", previd+1, id-1);
-      }
-      //create node trans-unit
-      fprintf(pPOTFile,"# id:%s\n", pAttrIdSourceInput);
-
-      if (mapXmlData.count( pValueSourceInput) > 1)        // if we have multiple IDs for the same string value
-      {
-        //create node context-group id with value
-        fprintf(pPOTFile,"msgctxt \"Auto generated context for string id %i\"\n", id);
-      }
-      //create node source with value
-      fprintf(pPOTFile,"msgid \"%s\"\n", pValueSourceInput);
-      fprintf(pPOTFile,"msgstr \"\"\n\n");
-      // if we have multiple IDs for the same string value, we create a context node
-      previd =id;
+      if (id-previd == 2) fprintf(pPOTFile,"#Empty string with id %i\n\n", id-1);
+      if (id-previd > 2) fprintf(pPOTFile,"#Empty strings from id %i to %i\n\n", previd+1, id-1);
     }
-    pChildSourceInput = pChildSourceInput->NextSiblingElement("string");
+    //create node trans-unit
+    fprintf(pPOTFile,"# id:%i\n", id);
+
+    if (mapSourceXmlStrings.count(value) > 1)        // if we have multiple IDs for the same string value
+    {
+      //create node context-group id with value
+      fprintf(pPOTFile,"msgctxt \"Auto generated context for string id %i\"\n", id);
+    }
+    //create node source with value
+    fprintf(pPOTFile,"msgid \"%s\"\n", value.c_str());
+    fprintf(pPOTFile,"msgstr \"\"\n\n");
+    // if we have multiple IDs for the same string value, we create a context node
+    previd =id;
   }
 
   fclose(pPOTFile);
   // Free up the allocated memory for the XML file
-  xmlDocSourceInput.Clear();
+//  xmlDocSourceInput.Clear();
 
   return 0;
 }
