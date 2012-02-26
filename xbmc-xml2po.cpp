@@ -42,11 +42,15 @@ char* pLanguage =NULL;
 TiXmlDocument xmlDocSourceInput;
 TiXmlDocument xmlDocForeignInput;
 bool bHasForeignInput = false;
-std::multimap<std::string, int> mapSourceXmlStrings;
+bool bVerboseOutput = false;
+std::multimap<std::string, int> multimapSourceXmlStrings;
 std::map<int, std::string> mapSourceXmlId;
 std::map<int, std::string>::iterator itSourceXmlId;
 std::map<int, std::string> mapForeignXmlId;
-
+std::map<int, std::string>::iterator itForeignXmlId;
+int contextCount = 0;
+int stringCountSource = 0;
+int stringCountForeign = 0;
 
 bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename, std::map<int, std::string> * pMapXmlStrings,
   bool isSourceFile)
@@ -74,12 +78,31 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename, std::map<int, std::st
     {
       int id = atoi(pAttrId);
       pValue = pChildElement->FirstChild()->Value();
-      mapSourceXmlStrings.insert(std::pair<std::string,int>( pValue,id));
+      if (isSourceFile) multimapSourceXmlStrings.insert(std::pair<std::string,int>( pValue,id));
       (*pMapXmlStrings)[id] = pValue;
     }
     pChildElement = pChildElement->NextSiblingElement("string");
   }
+  // Free up the allocated memory for the XML file
+  pXMLDoc.Clear();
   return true;
+}
+
+void PrintUsage()
+{
+  printf
+  (
+  "Usage: xbmc-xml2po -s <sourcexmlname> -o <pofilename> (-f <foreignxmlname>)"
+  "(-p <projectname>) (-f <version>) (-l <langcode>) (-d v)\n"
+  "parameter -s <name> for source input English XML filename\n"
+  "parameter -o <name> for output PO or POT filename\n"
+  "parameter -f <name> for foreign input XML filename\n"
+  "parameter -p <name> for project name\n"
+  "parameter -v <name> for project version\n"
+  "parameter -l <name> for 2 letter language code\n"
+  "parameter -d v for verbose outout of automatic context ceration\n"
+  );
+  return;
 }
 
 int main(int argc, char* argv[])
@@ -114,40 +137,55 @@ int main(int argc, char* argv[])
       --argc; ++argv;
       pLanguage = argv[1];
       break;
+    case 'd':
+      --argc; ++argv;
+      if (argv[1][0] == 'v') bVerboseOutput = true;
+      break;
     }
     ++argv; --argc;
   }
   if ((pSourceXMLFilename == NULL) || (pOutputPOFilename == NULL))
   {
     printf("Wrong Arguments given !\n");
-    printf("Usage: xbmc-xml2po -s <name> -o <name> (-f <name>)\n");
-    printf("parameter -s <name> for source input English XML filename\n");
-    printf("parameter -o <name> for output PO or POT filename\n");
-    printf("parameter -f <name> for foreign input XML filename\n");
+    PrintUsage();
     return 1;
   }
+
   bHasForeignInput = pForeignXMLFilename != NULL;
 
   if (!loadXMLFile(xmlDocSourceInput, pSourceXMLFilename, &mapSourceXmlId, true)) return 1;
+  if (bHasForeignInput) {if (!loadXMLFile(xmlDocForeignInput, pForeignXMLFilename, &mapForeignXmlId, false)) return 1;};
 
   // Initalize the output xml document
   pPOTFile = fopen (pOutputPOFilename,"wb");
-  if (pPOTFile == NULL) return 1;
+  if (pPOTFile == NULL)
+  {
+    printf("Error opening output file: %s\n", pOutputPOFilename);
+    return 1;
+  }
+  printf("Succesfully opened source file: %s\n", pSourceXMLFilename);
+  printf("Succesfully opened output file for writing: %s\n", pOutputPOFilename);
+  if (!bHasForeignInput) printf("No foreign strings.xml file specified, so creating souce POT file\n");
+    else printf("Foreign strings.xml file loaded, so creating PO file with language code: %s\n", pLanguage);
+
   fprintf(pPOTFile,
-  "# Converted from xbmc strings.xml with xbmc-xml2po coded by Team-XBMC\n"
-  "msgid \"\"\n"
-  "msgstr \"\"\n"
-  "\"Project-Id-Version: %s-%s\\n\"\n"
-  "\"Report-Msgid-Bugs-To: alanwww1@xbmc.org\\n\"\n"
-  "\"POT-Creation-Date: 2012-02-15 19:43+0100\\n\"\n"
-  "\"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
-  "\"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n\"\n"
-  "\"Language-Team: LANGUAGE\\n\"\n"
-  "\"Language: %s\\n\"\n"
-  "\"MIME-Version: 1.0\\n\"\n"
-  "\"Content-Type: text/plain; charset=UTF-8\\n\"\n"
-  "\"Content-Transfer-Encoding: 8bit\\n\"\n\n"
-  ,pProjectName, pVersionNumber, pLanguage);
+    "# Converted from xbmc strings.xml with xbmc-xml2po (by Team-XBMC)\n"
+    "msgid \"\"\n"
+    "msgstr \"\"\n"
+    "\"Project-Id-Version: %s-%s\\n\"\n"
+    "\"Report-Msgid-Bugs-To: alanwww1@xbmc.org\\n\"\n"
+    "\"POT-Creation-Date: 2012-02-15 19:43+0100\\n\"\n"
+    "\"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
+    "\"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n\"\n"
+    "\"Language-Team: LANGUAGE\\n\"\n"
+    "\"Language: %s\\n\"\n"
+    "\"MIME-Version: 1.0\\n\"\n"
+    "\"Content-Type: text/plain; charset=UTF-8\\n\"\n"
+    "\"Content-Transfer-Encoding: 8bit\\n\"\n\n",
+    (pProjectName != NULL) ? pProjectName : "xbmc-unnamed",
+    (pVersionNumber != NULL) ?  pVersionNumber : "rev_unknown",
+    (pLanguage != NULL) ? pLanguage : "LANGUAGE"
+  );
 
   int previd = -1;
   for (itSourceXmlId = mapSourceXmlId.begin(); itSourceXmlId != mapSourceXmlId.end(); itSourceXmlId++)
@@ -155,30 +193,40 @@ int main(int argc, char* argv[])
     int id = itSourceXmlId->first;
     std::string value = itSourceXmlId->second;
 
-    //create comment note if empty string or strings ids found
+    //create comment note, if empty string or strings ids found
     if (previd !=-1 && (id-previd >= 2))
     {
       if (id-previd == 2) fprintf(pPOTFile,"#Empty string with id %i\n\n", id-1);
       if (id-previd > 2) fprintf(pPOTFile,"#Empty strings from id %i to %i\n\n", previd+1, id-1);
     }
-    //create node trans-unit
+    //create comment, including string id
     fprintf(pPOTFile,"# id:%i\n", id);
 
-    if (mapSourceXmlStrings.count(value) > 1)        // if we have multiple IDs for the same string value
+    if (multimapSourceXmlStrings.count(value) > 1)        // if we have multiple IDs for the same string value
     {
-      //create node context-group id with value
+      //create autogenerated context message for multiple msgid entries
       fprintf(pPOTFile,"msgctxt \"Auto generated context for string id %i\"\n", id);
+      contextCount++;
+      if (bVerboseOutput) printf("Created automatic context for id: %i, value: %s\n", id, value.c_str());
     }
-    //create node source with value
+    //create msgid and msgstr lines
     fprintf(pPOTFile,"msgid \"%s\"\n", value.c_str());
-    fprintf(pPOTFile,"msgstr \"\"\n\n");
-    // if we have multiple IDs for the same string value, we create a context node
+    if (bHasForeignInput)
+    {
+      itForeignXmlId = mapForeignXmlId.find(id);
+      if (itForeignXmlId != mapForeignXmlId.end())
+      {
+        stringCountForeign++;
+        fprintf(pPOTFile,"msgstr \"%s\"\n\n", itForeignXmlId->second.c_str());
+      }
+    }
+      else fprintf(pPOTFile,"msgstr \"\"\n\n");
+        stringCountSource++;
     previd =id;
   }
-
   fclose(pPOTFile);
-  // Free up the allocated memory for the XML file
-//  xmlDocSourceInput.Clear();
+  printf("\nSuccesfully converted %i strings, created %i automatic contexts into file: %s\n", stringCountSource, contextCount, pOutputPOFilename);
+  if (bHasForeignInput) printf("Matched %i string entries from foreign strings.xml file: %s\n", stringCountForeign, pForeignXMLFilename);
 
   return 0;
 }
