@@ -35,6 +35,10 @@ FILE * pPOTFile;
 char* pSourceXMLFilename = NULL;
 char* pOutputPOFilename = NULL;
 char* pForeignXMLFilename = NULL;
+char* pProjectName =NULL;
+char* pVersionNumber = NULL;
+char* pLanguage =NULL;
+
 TiXmlDocument xmlDocSourceInput;
 TiXmlDocument xmlDocForeignInput;
 bool bHasForeignInput = false;
@@ -98,6 +102,18 @@ int main(int argc, char* argv[])
       --argc; ++argv;
       pForeignXMLFilename = argv[1];
       break;
+    case 'p':
+      --argc; ++argv;
+      pProjectName = argv[1];
+      break;
+    case 'v':
+      --argc; ++argv;
+      pVersionNumber = argv[1];
+      break;
+    case 'l':
+      --argc; ++argv;
+      pLanguage = argv[1];
+      break;
     }
     ++argv; --argc;
   }
@@ -117,7 +133,21 @@ int main(int argc, char* argv[])
   // Initalize the output xml document
   pPOTFile = fopen (pOutputPOFilename,"w");
   if (pPOTFile == NULL) return 1;
-  fprintf(pPOTFile,"# Converted from xbmc strings.xml &amp;");
+  fprintf(pPOTFile,
+  "# Converted from xbmc strings.xml with xbmc-xml2po coded by Team-XBMC\n"
+  "msgid \"\"\n"
+  "msgstr \"\"\n"
+  "\"Project-Id-Version: %s-%s\\n\"\n"
+  "\"Report-Msgid-Bugs-To: alanwww1@xbmc.org\\n\"\n"
+  "\"POT-Creation-Date: 2012-02-15 19:43+0100\\n\"\n"
+  "\"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
+  "\"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n\"\n"
+  "\"Language-Team: LANGUAGE\\n\"\n"
+  "\"Language: %s\\n\"\n"
+  "\"MIME-Version: 1.0\\n\"\n"
+  "\"Content-Type: text/plain; charset=UTF-8\\n\"\n"
+  "\"Content-Transfer-Encoding: 8bit\\n\"\n\n"
+  ,pProjectName, pVersionNumber, pLanguage);
 
   int previd = -1;
   for (itSourceXmlId = mapSourceXmlId.begin(); itSourceXmlId != mapSourceXmlId.end(); itSourceXmlId++)
