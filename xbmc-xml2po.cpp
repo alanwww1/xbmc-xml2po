@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
   if (!loadXMLFile(xmlDocSourceInput, pSourceXMLFilename, &mapSourceXmlId, true)) return 1;
 
   // Initalize the output xml document
-  pPOTFile = fopen (pOutputPOFilename,"w");
+  pPOTFile = fopen (pOutputPOFilename,"wb");
   if (pPOTFile == NULL) return 1;
   fprintf(pPOTFile,
   "# Converted from xbmc strings.xml with xbmc-xml2po coded by Team-XBMC\n"
