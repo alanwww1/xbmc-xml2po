@@ -200,7 +200,7 @@ int main(int argc, char* argv[])
       if (id-previd > 2) fprintf(pPOTFile,"#Empty strings from id %i to %i\n\n", previd+1, id-1);
     }
     //create comment, including string id
-    fprintf(pPOTFile,"# id:%i\n", id);
+    fprintf(pPOTFile,"#: id:%i\n", id);
 
     if (multimapSourceXmlStrings.count(value) > 1)        // if we have multiple IDs for the same string value
     {
@@ -219,9 +219,10 @@ int main(int argc, char* argv[])
         stringCountForeign++;
         fprintf(pPOTFile,"msgstr \"%s\"\n\n", itForeignXmlId->second.c_str());
       }
-    }
       else fprintf(pPOTFile,"msgstr \"\"\n\n");
-        stringCountSource++;
+    }
+    else fprintf(pPOTFile,"msgstr \"\"\n\n");
+    stringCountSource++;
     previd =id;
   }
   fclose(pPOTFile);
