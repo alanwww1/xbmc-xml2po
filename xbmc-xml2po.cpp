@@ -48,9 +48,23 @@ std::map<int, std::string> mapSourceXmlId;
 std::map<int, std::string>::iterator itSourceXmlId;
 std::map<int, std::string> mapForeignXmlId;
 std::map<int, std::string>::iterator itForeignXmlId;
+std::map<int, std::string> mapComments;
+std::map<int, std::string>::iterator itComments;
 int contextCount = 0;
 int stringCountSource = 0;
 int stringCountForeign = 0;
+
+// remove trailing and leading whitespaces
+std::string UnWhitespace(std::string strInput)
+{
+  int offset_end = strInput.size();
+  int offset_start = 0;
+
+  while (strInput[offset_start] == ' ') offset_start++; // check first non-whitespace char
+  while (strInput[offset_end-1] == ' ') offset_end--; // check last non whitespace char
+  strInput = strInput.substr(offset_start, offset_end - offset_start);
+  return strInput;
+}
 
 bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename, std::map<int, std::string> * pMapXmlStrings,
   bool isSourceFile)
@@ -71,15 +85,32 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename, std::map<int, std::st
   const TiXmlElement *pChildElement = pRootElement->FirstChildElement("string");
   const char* pAttrId = NULL;
   const char* pValue = NULL;
+  int id;
+  const TiXmlNode *pCommentNode;
+
   while (pChildElement)
   {
     pAttrId=pChildElement->Attribute("id");
     if (pAttrId && !pChildElement->NoChildren())
     {
-      int id = atoi(pAttrId);
+      id = atoi(pAttrId);
       pValue = pChildElement->FirstChild()->Value();
       if (isSourceFile) multimapSourceXmlStrings.insert(std::pair<std::string,int>( pValue,id));
       (*pMapXmlStrings)[id] = pValue;
+    }
+    if (pChildElement) pCommentNode = pChildElement->NextSibling();
+    else pCommentNode = NULL;
+
+    int nodeType;
+    while (pCommentNode)
+    {
+      nodeType = pCommentNode->Type();
+      if (nodeType == TiXmlNode::TINYXML_ELEMENT) break;
+      if (nodeType == TiXmlNode::TINYXML_COMMENT)
+      {
+        if (isSourceFile) mapComments[id] = UnWhitespace(pCommentNode->Value());
+      }
+      pCommentNode = pCommentNode->NextSibling();
     }
     pChildElement = pChildElement->NextSiblingElement("string");
   }
@@ -156,7 +187,7 @@ int main(int argc, char* argv[])
   if (!loadXMLFile(xmlDocSourceInput, pSourceXMLFilename, &mapSourceXmlId, true)) return 1;
   if (bHasForeignInput) {if (!loadXMLFile(xmlDocForeignInput, pForeignXMLFilename, &mapForeignXmlId, false)) return 1;};
 
-  // Initalize the output xml document
+  // Initalize the output po document
   pPOTFile = fopen (pOutputPOFilename,"wb");
   if (pPOTFile == NULL)
   {
@@ -193,11 +224,25 @@ int main(int argc, char* argv[])
     int id = itSourceXmlId->first;
     std::string value = itSourceXmlId->second;
 
-    //create comment note, if empty string or strings ids found
-    if (previd !=-1 && (id-previd >= 2))
+    //create comment lines, if empty string or strings ids found and
+    //re-create original xml comments between entries. Only for the source language
+    // TODO: handle comments right next to string entries differently
+    if (previd !=-1 && !bHasForeignInput)
     {
-      if (id-previd == 2) fprintf(pPOTFile,"#Empty string with id %i\n\n", id-1);
-      if (id-previd > 2) fprintf(pPOTFile,"#Empty strings from id %i to %i\n\n", previd+1, id-1);
+      bool bCommentWritten = false;
+      itComments = mapComments.find(previd);
+      if (itComments != mapComments.end())
+      {
+        fprintf(pPOTFile,"#%s\n", itComments->second.c_str());
+        bCommentWritten = true;
+      }
+      if ((id-previd >= 2))
+      {
+        if (id-previd == 2) fprintf(pPOTFile,"#empty string with id %i\n", id-1);
+        if (id-previd > 2) fprintf(pPOTFile,"#empty strings from id %i to %i\n", previd+1, id-1);
+        bCommentWritten = true;
+      }
+      if (bCommentWritten) fprintf(pPOTFile, "\n");
     }
     //create comment, including string id
     fprintf(pPOTFile,"#: id:%i\n", id);
@@ -222,6 +267,7 @@ int main(int argc, char* argv[])
       else fprintf(pPOTFile,"msgstr \"\"\n\n");
     }
     else fprintf(pPOTFile,"msgstr \"\"\n\n");
+
     stringCountSource++;
     previd =id;
   }
