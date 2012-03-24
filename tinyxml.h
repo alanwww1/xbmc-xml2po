@@ -285,13 +285,14 @@ public:
 
 protected:
 
-	static const char* SkipWhiteSpace( const char*, TiXmlEncoding encoding );
+	const char* SkipWhiteSpace( const char*, TiXmlEncoding encoding );
 
-	inline static bool IsWhiteSpace( char c )		
-	{ 
+        bool IsWhiteSpace( char c )		
+	{
+                if (c == '\n') m_bLineFeedPassed = true;
 		return ( isspace( (unsigned char) c ) || c == '\n' || c == '\r' ); 
 	}
-	inline static bool IsWhiteSpace( int c )
+	bool IsWhiteSpace( int c )
 	{
 		if ( c < 256 )
 			return IsWhiteSpace( (char) c );
@@ -312,7 +313,7 @@ protected:
 	/*	Reads text. Returns a pointer past the given end tag.
 		Wickedly complex options, but it keeps the (sensitive) code in one place.
 	*/
-	static const char* ReadText(	const char* in,				// where to start
+	const char* ReadText(	const char* in,				// where to start
 									TIXML_STRING* text,			// the string read
 									bool ignoreWhiteSpace,		// whether to keep the white space
 									const char* endTag,			// what ends this text
@@ -403,6 +404,7 @@ protected:
 private:
 	TiXmlBase( const TiXmlBase& );				// not implemented.
 	void operator=( const TiXmlBase& base );	// not allowed.
+        bool m_bLineFeedPassed;
 
 	struct Entity
 	{
@@ -743,6 +745,7 @@ public:
 		@endverbatim
 	*/
 	virtual bool Accept( TiXmlVisitor* visitor ) const = 0;
+        bool m_CommentLFPassed;
 
 protected:
 	TiXmlNode( NodeType _type );

@@ -864,6 +864,7 @@ TiXmlNode* TiXmlNode::Identify( const char* p, TiXmlEncoding encoding )
 			TIXML_LOG( "XML parsing Comment\n" );
 		#endif
 		returnNode = new TiXmlComment();
+                returnNode->m_CommentLFPassed = m_bLineFeedPassed;
 	}
 	else if ( StringEqual( p, cdataHeader, false, encoding ) )
 	{
@@ -887,6 +888,7 @@ TiXmlNode* TiXmlNode::Identify( const char* p, TiXmlEncoding encoding )
 		#ifdef DEBUG_PARSER
 			TIXML_LOG( "XML parsing Element\n" );
 		#endif
+                m_bLineFeedPassed =false;
 		returnNode = new TiXmlElement( "" );
 	}
 	else
@@ -1638,7 +1640,7 @@ const char* TiXmlDeclaration::Parse( const char* p, TiXmlParsingData* data, TiXm
 bool TiXmlText::Blank() const
 {
 	for ( unsigned i=0; i<value.length(); i++ )
-		if ( !IsWhiteSpace( value[i] ) )
+          if (!(isspace( (unsigned char) value[i] ) || value[i] == '\n' || value[i] == '\r' ))
 			return false;
 	return true;
 }
