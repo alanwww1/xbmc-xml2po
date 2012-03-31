@@ -30,25 +30,33 @@
 #include "tinyxml.h"
 #include "string"
 #include <map>
+#include <dirent.h>
+#include "xbmclangcodes.h"
+#include "ctime"
+
+#if defined( WIN32 )
+  std::string DirSepChar = "\\";
+#else
+  std::string DirSepChar = "/";
+#endif
 
 FILE * pPOTFile;
-char* pSourceXMLFilename = NULL;
-char* pOutputPOFilename = NULL;
-char* pForeignXMLFilename = NULL;
+char* pSourceDirectory = NULL;
 char* pProjectName =NULL;
 char* pVersionNumber = NULL;
-char* pLanguage =NULL;
+
+std::string WorkingDir;
 
 TiXmlDocument xmlDocSourceInput;
 TiXmlDocument xmlDocForeignInput;
-bool bHasForeignInput = false;
-bool bVerboseOutput = false;
+
 class CCommentEntry
 {
 public:
   std::string text;
   bool bInterLineComment;
 };
+
 std::multimap<std::string, int> multimapSourceXmlStrings;
 std::map<int, std::string> mapSourceXmlId;
 std::map<int, std::string>::iterator itSourceXmlId;
@@ -57,10 +65,6 @@ std::map<int, std::string>::iterator itForeignXmlId;
 std::multimap<int, CCommentEntry> mapComments;
 std::multimap<int, CCommentEntry>::iterator itComments;
 std::pair<std::multimap<int, CCommentEntry>::iterator, std::multimap<int, CCommentEntry>::iterator> itRangeComments;
-
-int contextCount = 0;
-int stringCountSource = 0;
-int stringCountForeign = 0;
 
 // remove trailing and leading whitespaces
 std::string UnWhitespace(std::string strInput)
@@ -74,19 +78,19 @@ std::string UnWhitespace(std::string strInput)
   return strInput;
 }
 
-bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename, std::map<int, std::string> * pMapXmlStrings,
+bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int, std::string> * pMapXmlStrings,
   bool isSourceFile)
 {
-  if (!pXMLDoc.LoadFile(pFilename))
+  if (!pXMLDoc.LoadFile(XMLFilename.c_str()))
   {
-    printf ("%s %s\n", pXMLDoc.ErrorDesc(), pFilename);
+    printf ("%s %s\n", pXMLDoc.ErrorDesc(), XMLFilename.c_str());
     return false;
   }
 
   TiXmlElement* pRootElement = pXMLDoc.RootElement();
   if (!pRootElement || pRootElement->NoChildren() || pRootElement->ValueTStr()!="strings")
   {
-    printf ("error: No root element called: \"strings\" or no child found in input XML file: %s\n", pFilename);
+    printf ("error: No root element called: \"strings\" or no child found in input XML file: %s\n", XMLFilename.c_str());
     return false;
   }
 
@@ -104,24 +108,26 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, char* pFilename, std::map<int, std::st
       id = atoi(pAttrId);
       pValue = pChildElement->FirstChild()->Value();
       if (isSourceFile) multimapSourceXmlStrings.insert(std::pair<std::string,int>( pValue,id));
-      (*pMapXmlStrings)[id] = pValue;
-    }
-    if (pChildElement) pCommentNode = pChildElement->NextSibling();
-    else pCommentNode = NULL;
 
-    int nodeType;
-    while (pCommentNode)
-    {
-      nodeType = pCommentNode->Type();
-      if (nodeType == TiXmlNode::TINYXML_ELEMENT) break;
-      if (nodeType == TiXmlNode::TINYXML_COMMENT)
+      (*pMapXmlStrings)[id] = pValue;
+
+      if (pChildElement) pCommentNode = pChildElement->NextSibling();
+      else pCommentNode = NULL;
+
+      int nodeType;
+      while (pCommentNode)
       {
-        CCommentEntry ce;
-        ce.text = UnWhitespace(pCommentNode->Value());
-        ce.bInterLineComment = pCommentNode->m_CommentLFPassed; // we store if the comment was in a new line or not
-        if (isSourceFile) mapComments.insert(std::pair<int,CCommentEntry>(id, ce));
+        nodeType = pCommentNode->Type();
+        if (nodeType == TiXmlNode::TINYXML_ELEMENT) break;
+        if (nodeType == TiXmlNode::TINYXML_COMMENT)
+        {
+          CCommentEntry ce;
+          ce.text = UnWhitespace(pCommentNode->Value());
+          ce.bInterLineComment = pCommentNode->m_CommentLFPassed; // we store if the comment was in a new line or not
+          if (isSourceFile) mapComments.insert(std::pair<int,CCommentEntry>(id, ce));
+        }
+        pCommentNode = pCommentNode->NextSibling();
       }
-      pCommentNode = pCommentNode->NextSibling();
     }
     pChildElement = pChildElement->NextSiblingElement("string");
   }
@@ -154,81 +160,44 @@ void PrintUsage()
 {
   printf
   (
-  "Usage: xbmc-xml2po -s <sourcexmlname> -o <pofilename> (-f <foreignxmlname>)"
-  "(-p <projectname>) (-f <version>) (-l <langcode>) (-d v)\n"
-  "parameter -s <name> for source input English XML filename\n"
-  "parameter -o <name> for output PO or POT filename\n"
-  "parameter -f <name> for foreign input XML filename\n"
-  "parameter -p <name> for project name\n"
-  "parameter -v <name> for project version\n"
-  "parameter -l <name> for 2 letter language code\n"
-  "parameter -d v for verbose outout of automatic context ceration\n"
+  "Usage: xbmc-xml2po -s <sourcedirectoryname> (-p <projectname>) (-v <version>)\n"
+  "parameter -s <name> for source root language directory, which contains the language dirs\n"
+  "parameter -p <name> for project name, eg. xbmc.skin.confluence\n"
+  "parameter -v <name> for project version, eg. GIT251373f9c3\n"
   );
   return;
 }
 
-int main(int argc, char* argv[])
+std::string GetCurrentTime()
 {
-  // Basic syntax checking for "-x name" format
-  while ((argc > 2) && (argv[1][0] == '-') && (argv[1][1] != '\x00') && (argv[1][2] == '\x00')
-    && (argv[2][0] != '\x00') && (argv[2][0] != '-'))
-  {
-    switch (argv[1][1])
-    {
-    case 's':
-      --argc; ++argv;
-      pSourceXMLFilename = argv[1];
-      break;
-    case 'o':
-      --argc; ++argv;
-      pOutputPOFilename = argv[1];
-      break;
-    case 'f':
-      --argc; ++argv;
-      pForeignXMLFilename = argv[1];
-      break;
-    case 'p':
-      --argc; ++argv;
-      pProjectName = argv[1];
-      break;
-    case 'v':
-      --argc; ++argv;
-      pVersionNumber = argv[1];
-      break;
-    case 'l':
-      --argc; ++argv;
-      pLanguage = argv[1];
-      break;
-    case 'd':
-      --argc; ++argv;
-      if (argv[1][0] == 'v') bVerboseOutput = true;
-      break;
-    }
-    ++argv; --argc;
+  std::string strTime(64, '\0');
+  time_t now = std::time(0);
+  struct std::tm* gmtm = std::gmtime(&now);
+  if (gmtm != NULL) {
+    sprintf(&strTime[0], "%04i-%02i-%02i %02i:%02i+0000", gmtm->tm_year + 1900, gmtm->tm_mon + 1,
+      gmtm->tm_mday, gmtm->tm_hour, gmtm->tm_min);
   }
-  if ((pSourceXMLFilename == NULL) || (pOutputPOFilename == NULL))
-  {
-    printf("Wrong Arguments given !\n");
-    PrintUsage();
-    return 1;
-  }
+  return strTime;
+}
 
-  bHasForeignInput = pForeignXMLFilename != NULL;
+bool  ConvertXML2PO(std::string LangDir, std::string LCode, bool bIsForeignLang)
+{
+  int contextCount = 0;
+  int stringCountSource = 0;
+  int stringCountForeign = 0;
+  std::string  OutputPOFilename;
 
-  if (!loadXMLFile(xmlDocSourceInput, pSourceXMLFilename, &mapSourceXmlId, true)) return 1;
-  if (bHasForeignInput) {if (!loadXMLFile(xmlDocForeignInput, pForeignXMLFilename, &mapForeignXmlId, false)) return 1;};
+  if (bIsForeignLang) OutputPOFilename = LangDir + "strings.po";
+    else OutputPOFilename = LangDir + "strings.pot";
 
   // Initalize the output po document
-  pPOTFile = fopen (pOutputPOFilename,"wb");
+  pPOTFile = fopen (OutputPOFilename.c_str(),"wb");
   if (pPOTFile == NULL)
   {
-    printf("Error opening output file: %s\n", pOutputPOFilename);
-    return 1;
+    printf("Error opening output file: %s\n", OutputPOFilename.c_str());
+    return false;
   }
-  printf("Succesfully opened source file: %s\n", pSourceXMLFilename);
-  printf("Succesfully opened output file for writing: %s\n", pOutputPOFilename);
-  if (!bHasForeignInput) printf("No foreign strings.xml file specified, so creating souce POT file\n");
-    else printf("Foreign strings.xml file loaded, so creating PO file with language code: %s\n", pLanguage);
+  printf("%s\t\t", LCode.c_str()); 
 
   fprintf(pPOTFile,
     "# Converted from xbmc strings.xml with xbmc-xml2po (by Team-XBMC)\n"
@@ -236,7 +205,7 @@ int main(int argc, char* argv[])
     "msgstr \"\"\n"
     "\"Project-Id-Version: %s-%s\\n\"\n"
     "\"Report-Msgid-Bugs-To: alanwww1@xbmc.org\\n\"\n"
-    "\"POT-Creation-Date: 2012-02-15 19:43+0100\\n\"\n"
+    "\"POT-Creation-Date: %s\\n\"\n"
     "\"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
     "\"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n\"\n"
     "\"Language-Team: LANGUAGE\\n\"\n"
@@ -246,8 +215,8 @@ int main(int argc, char* argv[])
     "\"Content-Transfer-Encoding: 8bit\\n\"\n\n",
     (pProjectName != NULL) ? pProjectName : "xbmc-unnamed",
     (pVersionNumber != NULL) ?  pVersionNumber : "rev_unknown",
-    (pLanguage != NULL) ? pLanguage : "LANGUAGE"
-  );
+    GetCurrentTime().c_str(),
+    (!LCode.empty()) ? LCode.c_str() : "LANGUAGE");
 
   int previd = -1;
   bool bCommentWritten = false;
@@ -259,12 +228,12 @@ int main(int argc, char* argv[])
     //create comment lines, if empty string id or ids found and
     //re-create original xml comments between entries. Only for the source language
     bCommentWritten = false;
-    if (previd !=-1 && !bHasForeignInput) bCommentWritten = WriteComments(previd, true);
+    if (previd !=-1 && !bIsForeignLang) bCommentWritten = WriteComments(previd, true);
 
-    if ((id-previd >= 2) && !bHasForeignInput)
+    if ((id-previd >= 2) && !bIsForeignLang)
     {
-      if (id-previd == 2) fprintf(pPOTFile,"#empty string with id %i\n", id-1);
-      if (id-previd > 2) fprintf(pPOTFile,"#empty strings from id %i to %i\n", previd+1, id-1);
+      if (id-previd == 2 && previd > -1) fprintf(pPOTFile,"#empty string with id %i\n", id-1);
+      if (id-previd > 2 && previd > -1) fprintf(pPOTFile,"#empty strings from id %i to %i\n", previd+1, id-1);
       bCommentWritten = true;
     }
     if (bCommentWritten) fprintf(pPOTFile, "\n");
@@ -274,18 +243,17 @@ int main(int argc, char* argv[])
 
     //write comment originally placed next to the string entry
     //convert it into #. style gettext comment
-    if (!bHasForeignInput) WriteComments(id, false);
+    if (!bIsForeignLang) WriteComments(id, false);
 
     if (multimapSourceXmlStrings.count(value) > 1) // if we have multiple IDs for the same string value
     {
       //create autogenerated context message for multiple msgid entries
       fprintf(pPOTFile,"msgctxt \"Auto context with id %i\"\n", id);
       contextCount++;
-      if (bVerboseOutput) printf("Created automatic context for id: %i, value: %s\n", id, value.c_str());
     }
     //create msgid and msgstr lines
     fprintf(pPOTFile,"msgid \"%s\"\n", value.c_str());
-    if (bHasForeignInput)
+    if (bIsForeignLang)
     {
       itForeignXmlId = mapForeignXmlId.find(id);
       if (itForeignXmlId != mapForeignXmlId.end())
@@ -301,8 +269,79 @@ int main(int argc, char* argv[])
     previd =id;
   }
   fclose(pPOTFile);
-  printf("\nSuccesfully converted %i strings, created %i automatic contexts into file: %s\n", stringCountSource, contextCount, pOutputPOFilename);
-  if (bHasForeignInput) printf("Matched %i string entries from foreign strings.xml file: %s\n", stringCountForeign, pForeignXMLFilename);
 
+  printf("%i\t\t", bIsForeignLang ? stringCountForeign : stringCountSource);
+  printf("%i\t\t", contextCount);
+  printf("%s\n", OutputPOFilename.erase(0,WorkingDir.length()).c_str());
+
+  mapForeignXmlId.clear();
+  return true;
+}
+
+int main(int argc, char* argv[])
+{
+  // Basic syntax checking for "-x name" format
+  while ((argc > 2) && (argv[1][0] == '-') && (argv[1][1] != '\x00') && (argv[1][2] == '\x00')
+    && (argv[2][0] != '\x00') && (argv[2][0] != '-'))
+  {
+    switch (argv[1][1])
+    {
+      case 's':
+        --argc; ++argv;
+        pSourceDirectory = argv[1];
+        break;
+      case 'p':
+        --argc; ++argv;
+        pProjectName = argv[1];
+        break;
+      case 'v':
+        --argc; ++argv;
+        pVersionNumber = argv[1];
+        break;
+    }
+    ++argv; --argc;
+  }
+
+  if (pSourceDirectory == NULL)
+  {
+    printf("Wrong Arguments given !\n");
+    PrintUsage();
+    return 1;
+  }
+
+  printf("\nXBMC-XML2PO by Team XBMC\n");
+  printf("\nResults:\n\n");
+  printf("Langcode\tString match\tAuto contexts\tOutput file\n");
+  printf("--------------------------------------------------------------\n");
+
+  WorkingDir = pSourceDirectory;
+  if (WorkingDir[0] != DirSepChar[0]) WorkingDir.append(DirSepChar);
+
+  if (!loadXMLFile(xmlDocSourceInput, WorkingDir + "English" + DirSepChar + "strings.xml",
+    &mapSourceXmlId, true))
+  {
+    printf("Fatal error: no English source xml file found or it is corrupted\n");
+    return 1;
+  }
+  ConvertXML2PO(WorkingDir + "English" + DirSepChar, "en", false);
+
+  DIR* Dir;
+  struct dirent *DirEntry;
+  Dir = opendir(WorkingDir.c_str());
+
+  while((DirEntry=readdir(Dir)))
+  {
+    std::string LName = "";
+    if (DirEntry->d_type == DT_DIR && DirEntry->d_name[0] != '.' && strcmp(DirEntry->d_name, "English"))
+    {
+      if (loadXMLFile(xmlDocForeignInput, WorkingDir + DirEntry->d_name + DirSepChar + "strings.xml",
+        &mapForeignXmlId, false))
+        ConvertXML2PO(WorkingDir + DirEntry->d_name + DirSepChar, FindLangCode(DirEntry->d_name).c_str(), true);
+    }
+  }
+  if (bUnknownLangFound)
+    printf("\nAt least one language found with unpaired language code !\n"
+      "Please edit the .po file manually and correct the language code !\n"
+      "Also please report this to alanwww1@xbmc.org if possible !\n\n");
   return 0;
 }
