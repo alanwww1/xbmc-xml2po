@@ -117,11 +117,12 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
     return false;
   }
 
+  if (isSourceFile) GetComment(pRootElement->FirstChild(), -1);
+
   const TiXmlElement *pChildElement = pRootElement->FirstChildElement("string");
   const char* pAttrId = NULL;
   const char* pValue = NULL;
   int id;
-  const TiXmlNode *pCommentNode;
 
   while (pChildElement)
   {
@@ -236,7 +237,7 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, bool bIsForeignLang)
     //create comment lines, if empty string id or ids found and
     //re-create original xml comments between entries. Only for the source language
     bCommentWritten = false;
-    if (previd !=-1 && !bIsForeignLang) bCommentWritten = WriteComments(previd, true);
+    if (!bIsForeignLang) bCommentWritten = WriteComments(previd, true);
 
     if ((id-previd >= 2) && !bIsForeignLang)
     {
