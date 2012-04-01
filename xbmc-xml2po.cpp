@@ -19,6 +19,10 @@
  *
  */
 
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <stdio.h>
 
 #if defined( WIN32 ) && defined( TUNE )
@@ -30,14 +34,15 @@
 #include "tinyxml.h"
 #include "string"
 #include <map>
-#include <dirent.h>
 #include "xbmclangcodes.h"
 #include "ctime"
 
-#if defined( WIN32 )
+#ifdef _MSC_VER
   std::string DirSepChar = "\\";
+  #include "dirent.h"
 #else
   std::string DirSepChar = "/";
+  #include <dirent.h>
 #endif
 
 FILE * pPOTFile;
@@ -168,7 +173,7 @@ void PrintUsage()
   return;
 }
 
-std::string GetCurrentTime()
+std::string GetCurrTime()
 {
   std::string strTime(64, '\0');
   time_t now = std::time(0);
@@ -215,7 +220,7 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, bool bIsForeignLang)
     "\"Content-Transfer-Encoding: 8bit\\n\"\n\n",
     (pProjectName != NULL) ? pProjectName : "xbmc-unnamed",
     (pVersionNumber != NULL) ?  pVersionNumber : "rev_unknown",
-    GetCurrentTime().c_str(),
+    GetCurrTime().c_str(),
     (!LCode.empty()) ? LCode.c_str() : "LANGUAGE");
 
   int previd = -1;

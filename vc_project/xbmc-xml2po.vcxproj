@@ -67,8 +67,10 @@
     <ClCompile Include="..\xbmc-xml2po.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\dirent.h" />
     <ClInclude Include="..\tinystr.h" />
     <ClInclude Include="..\tinyxml.h" />
+    <ClInclude Include="..\xbmclangcodes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
