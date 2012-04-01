@@ -83,6 +83,24 @@ std::string UnWhitespace(std::string strInput)
   return strInput;
 }
 
+void GetComment(const TiXmlNode *pCommentNode, int id)
+{
+  int nodeType;
+  while (pCommentNode)
+  {
+    nodeType = pCommentNode->Type();
+    if (nodeType == TiXmlNode::TINYXML_ELEMENT) break;
+    if (nodeType == TiXmlNode::TINYXML_COMMENT)
+    {
+      CCommentEntry ce;
+      ce.text = UnWhitespace(pCommentNode->Value());
+      ce.bInterLineComment = pCommentNode->m_CommentLFPassed; // we store if the comment was in a new line or not
+      mapComments.insert(std::pair<int,CCommentEntry>(id, ce));
+    }
+    pCommentNode = pCommentNode->NextSibling();
+  }
+}
+
 bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int, std::string> * pMapXmlStrings,
   bool isSourceFile)
 {
@@ -116,23 +134,8 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
 
       (*pMapXmlStrings)[id] = pValue;
 
-      if (pChildElement) pCommentNode = pChildElement->NextSibling();
-      else pCommentNode = NULL;
+      if (pChildElement && isSourceFile) GetComment(pChildElement->NextSibling(), id);
 
-      int nodeType;
-      while (pCommentNode)
-      {
-        nodeType = pCommentNode->Type();
-        if (nodeType == TiXmlNode::TINYXML_ELEMENT) break;
-        if (nodeType == TiXmlNode::TINYXML_COMMENT)
-        {
-          CCommentEntry ce;
-          ce.text = UnWhitespace(pCommentNode->Value());
-          ce.bInterLineComment = pCommentNode->m_CommentLFPassed; // we store if the comment was in a new line or not
-          if (isSourceFile) mapComments.insert(std::pair<int,CCommentEntry>(id, ce));
-        }
-        pCommentNode = pCommentNode->NextSibling();
-      }
     }
     pChildElement = pChildElement->NextSiblingElement("string");
   }
