@@ -72,6 +72,9 @@
     <ClInclude Include="..\tinyxml.h" />
     <ClInclude Include="..\xbmclangcodes.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\README" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

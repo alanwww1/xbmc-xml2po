@@ -7,10 +7,16 @@ any web based community driven translation system, like Transifex.
 Usage: xbmc-xml2po -s <sourcedirectoryname> (-p <projectname>) (-v <version>)
  -s <name> for source root language directory, which contains the language dirs
  -p <name> for project name, eg. xbmc.skin.confluence
- -v <name> for project version, eg. GIT251373f9c3
+ -v <name> for project version, eg. FRODO_GIT251373f9c3
  
- With any issues, please report to alanwww1@xbmc.org
- 
- Version History:
- 0.8 - Initial version, working on Linux, Windows with batch convert capabilities
- 
+Note for windows users: In case you have whitespace or special character in the arguments,
+please use apostrophe around them. For example:
+xbmc-xml2po.exe -s "C:\Users\xbmc\Documents\Builds\xbmc-master\xbmc\language" -p xbmc.core -v Frodo_GIT
+
+Or just copy the xbmc-xml2po.exe file into your source tree and run for example:
+xbmc-xml2po.exe -s language -p xbmc.core -v FRODO_GIT
+
+With any issues, please report to alanwww1@xbmc.org
+
+Version History:
+0.8 - Initial version, working on Linux, Windows with batch convert capabilities

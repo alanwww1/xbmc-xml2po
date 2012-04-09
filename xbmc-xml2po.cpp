@@ -172,9 +172,17 @@ void PrintUsage()
   "Usage: xbmc-xml2po -s <sourcedirectoryname> (-p <projectname>) (-v <version>)\n"
   "parameter -s <name> for source root language directory, which contains the language dirs\n"
   "parameter -p <name> for project name, eg. xbmc.skin.confluence\n"
-  "parameter -v <name> for project version, eg. GIT251373f9c3\n"
+  "parameter -v <name> for project version, eg. FRODO_GIT251373f9c3\n\n"
   );
-  return;
+#ifdef _MSC_VER
+  printf
+  (
+  "Note for windows users: In case you have whitespace or special character in the arguments,\n"
+  "please use apostrophe around them. For example:\n"
+  "xbmc-xml2po.exe -s \"C:\\Users\\xbmc\\Documents\\Builds\\xbmc-master\\xbmc\\language\" -p xbmc.core -v FRODO_GIT\n"
+  );
+#endif
+return;
 }
 
 std::string GetCurrTime()
