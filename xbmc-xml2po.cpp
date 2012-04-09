@@ -353,10 +353,10 @@ int main(int argc, char* argv[])
     {
       if (loadXMLFile(xmlDocForeignInput, WorkingDir + DirEntry->d_name + DirSepChar + "strings.xml",
         &mapForeignXmlId, false))
-	  {
+      {
         ConvertXML2PO(WorkingDir + DirEntry->d_name + DirSepChar, FindLangCode(DirEntry->d_name).c_str(), true);
         langcounter++;
-	  }
+      }
     }
   }
 
