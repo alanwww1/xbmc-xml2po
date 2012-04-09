@@ -355,7 +355,7 @@ int main(int argc, char* argv[])
         &mapForeignXmlId, false))
 	  {
         ConvertXML2PO(WorkingDir + DirEntry->d_name + DirSepChar, FindLangCode(DirEntry->d_name).c_str(), true);
-		langcounter++;
+        langcounter++;
 	  }
     }
   }
