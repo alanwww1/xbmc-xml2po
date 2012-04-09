@@ -177,9 +177,9 @@ void PrintUsage()
 #ifdef _MSC_VER
   printf
   (
-  "Note for windows users: In case you have whitespace or special character in the arguments,\n"
-  "please use apostrophe around them. For example:\n"
-  "xbmc-xml2po.exe -s \"C:\\Users\\xbmc\\Documents\\Builds\\xbmc-master\\xbmc\\language\" -p xbmc.core -v FRODO_GIT\n"
+  "Note for Windows users: In case you have whitespace or any special character\n"
+  "in any of the arguments, please use apostrophe around them. For example:\n"
+  "xbmc-xml2po.exe -s \"C:\\xbmc dir\\language\" -p xbmc.core -v Frodo_GIT\n"
   );
 #endif
 return;
@@ -204,9 +204,8 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, bool bIsForeignLang)
   int stringCountForeign = 0;
   std::string  OutputPOFilename;
 
-  if (bIsForeignLang) OutputPOFilename = LangDir + "strings.po";
-    else OutputPOFilename = LangDir + "strings.pot";
-
+  OutputPOFilename = LangDir + "strings.po";
+  
   // Initalize the output po document
   pPOTFile = fopen (OutputPOFilename.c_str(),"wb");
   if (pPOTFile == NULL)
@@ -321,7 +320,7 @@ int main(int argc, char* argv[])
 
   if (pSourceDirectory == NULL)
   {
-    printf("Wrong Arguments given !\n");
+    printf("\nWrong Arguments given !\n");
     PrintUsage();
     return 1;
   }
@@ -345,6 +344,7 @@ int main(int argc, char* argv[])
   DIR* Dir;
   struct dirent *DirEntry;
   Dir = opendir(WorkingDir.c_str());
+  int langcounter =0;
 
   while((DirEntry=readdir(Dir)))
   {
@@ -353,11 +353,17 @@ int main(int argc, char* argv[])
     {
       if (loadXMLFile(xmlDocForeignInput, WorkingDir + DirEntry->d_name + DirSepChar + "strings.xml",
         &mapForeignXmlId, false))
+	  {
         ConvertXML2PO(WorkingDir + DirEntry->d_name + DirSepChar, FindLangCode(DirEntry->d_name).c_str(), true);
+		langcounter++;
+	  }
     }
   }
+
+  printf("\nReady. Processed %i languages.\n", langcounter+1);
+
   if (bUnknownLangFound)
-    printf("\nAt least one language found with unpaired language code !\n"
+    printf("\nWarning: At least one language found with unpaired language code !\n"
       "Please edit the .po file manually and correct the language code !\n"
       "Also please report this to alanwww1@xbmc.org if possible !\n\n");
   return 0;

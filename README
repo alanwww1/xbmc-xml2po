@@ -9,9 +9,9 @@ Usage: xbmc-xml2po -s <sourcedirectoryname> (-p <projectname>) (-v <version>)
  -p <name> for project name, eg. xbmc.skin.confluence
  -v <name> for project version, eg. FRODO_GIT251373f9c3
  
-Note for windows users: In case you have whitespace or special character in the arguments,
-please use apostrophe around them. For example:
-xbmc-xml2po.exe -s "C:\Users\xbmc\Documents\Builds\xbmc-master\xbmc\language" -p xbmc.core -v Frodo_GIT
+Note for Windows users: In case you have whitespace or any special character
+in any of the arguments, please use apostrophe around them. For example:
+xbmc-xml2po.exe -s "C:\xbmc dir\language" -p xbmc.core -v Frodo_GIT
 
 Or just copy the xbmc-xml2po.exe file into your source tree and run for example:
 xbmc-xml2po.exe -s language -p xbmc.core -v FRODO_GIT
