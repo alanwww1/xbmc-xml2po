@@ -33,7 +33,7 @@ distribution.
 
 FILE* TiXmlFOpen( const char* filename, const char* mode );
 
-bool TiXmlBase::condenseWhiteSpace = true;
+bool TiXmlBase::condenseWhiteSpace = false;
 
 // Microsoft compiler security
 FILE* TiXmlFOpen( const char* filename, const char* mode )
