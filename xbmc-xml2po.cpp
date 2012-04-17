@@ -32,7 +32,7 @@
 #endif
 
 #include "tinyxml.h"
-#include "string"
+#include <string>
 #include <map>
 #include "xbmclangcodes.h"
 #include "ctime"
@@ -101,6 +101,25 @@ void GetComment(const TiXmlNode *pCommentNode, int id)
   }
 }
 
+std::string EscapeLF(const char * StrToEscape)
+{
+  std::string strIN(StrToEscape);
+  std::string strOut;
+  std::string::iterator it;
+  for (it = strIN.begin(); it != strIN.end(); it++)
+  {
+    if (*it == '\n')
+    {
+      strOut.append("\\n");
+      continue;
+    }
+    if (*it == '\r')
+      continue;
+    strOut += *it;
+  }
+  return strOut;
+}
+
 bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int, std::string> * pMapXmlStrings,
   bool isSourceFile)
 {
@@ -122,6 +141,7 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
   const TiXmlElement *pChildElement = pRootElement->FirstChildElement("string");
   const char* pAttrId = NULL;
   const char* pValue = NULL;
+  std::string valueString;
   int id;
 
   while (pChildElement)
@@ -131,9 +151,10 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
     {
       id = atoi(pAttrId);
       pValue = pChildElement->FirstChild()->Value();
-      if (isSourceFile) multimapSourceXmlStrings.insert(std::pair<std::string,int>( pValue,id));
+      valueString = EscapeLF(pValue);
+      if (isSourceFile) multimapSourceXmlStrings.insert(std::pair<std::string,int>( valueString,id));
 
-      (*pMapXmlStrings)[id] = pValue;
+      (*pMapXmlStrings)[id] = valueString;
 
       if (pChildElement && isSourceFile) GetComment(pChildElement->NextSibling(), id);
 
