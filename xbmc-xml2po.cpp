@@ -77,8 +77,11 @@ std::string UnWhitespace(std::string strInput)
   int offset_end = strInput.size();
   int offset_start = 0;
 
-  while (strInput[offset_start] == ' ') offset_start++; // check first non-whitespace char
-  while (strInput[offset_end-1] == ' ') offset_end--; // check last non whitespace char
+  while (strInput[offset_start] == ' ')
+    offset_start++; // check first non-whitespace char
+  while (strInput[offset_end-1] == ' ')
+    offset_end--; // check last non whitespace char
+
   strInput = strInput.substr(offset_start, offset_end - offset_start);
   return strInput;
 }
@@ -89,12 +92,15 @@ void GetComment(const TiXmlNode *pCommentNode, int id)
   while (pCommentNode)
   {
     nodeType = pCommentNode->Type();
-    if (nodeType == TiXmlNode::TINYXML_ELEMENT) break;
+    if (nodeType == TiXmlNode::TINYXML_ELEMENT)
+      break;
     if (nodeType == TiXmlNode::TINYXML_COMMENT)
     {
       CCommentEntry ce;
       ce.text = UnWhitespace(pCommentNode->Value());
-      ce.bInterLineComment = pCommentNode->m_CommentLFPassed; // we store if the comment was in a new line or not
+      ce.bInterLineComment = pCommentNode->m_CommentLFPassed;
+      // we store if the comment was in a new line or not
+
       mapComments.insert(std::pair<int,CCommentEntry>(id, ce));
     }
     pCommentNode = pCommentNode->NextSibling();
@@ -120,8 +126,8 @@ std::string EscapeLF(const char * StrToEscape)
   return strOut;
 }
 
-bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int, std::string> * pMapXmlStrings,
-  bool isSourceFile)
+bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
+                  std::string> * pMapXmlStrings, bool isSourceFile)
 {
   if (!pXMLDoc.LoadFile(XMLFilename.c_str()))
   {
@@ -132,7 +138,8 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
   TiXmlElement* pRootElement = pXMLDoc.RootElement();
   if (!pRootElement || pRootElement->NoChildren() || pRootElement->ValueTStr()!="strings")
   {
-    printf ("error: No root element called: \"strings\" or no child found in input XML file: %s\n", XMLFilename.c_str());
+    printf ("error: No root element called: \"strings\" or no child found in input XML file: %s\n",
+            XMLFilename.c_str());
     return false;
   }
 
@@ -150,14 +157,17 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
     if (pAttrId && !pChildElement->NoChildren())
     {
       id = atoi(pAttrId);
-      pValue = pChildElement->FirstChild()->Value();
-      valueString = EscapeLF(pValue);
-      if (isSourceFile) multimapSourceXmlStrings.insert(std::pair<std::string,int>( valueString,id));
+      if (pMapXmlStrings->find(id) == pMapXmlStrings->end())
+      {
+        pValue = pChildElement->FirstChild()->Value();
+        valueString = EscapeLF(pValue);
+        if (isSourceFile)
+          multimapSourceXmlStrings.insert(std::pair<std::string,int>( valueString,id));
 
-      (*pMapXmlStrings)[id] = valueString;
+        (*pMapXmlStrings)[id] = valueString;
 
-      if (pChildElement && isSourceFile) GetComment(pChildElement->NextSibling(), id);
-
+        if (pChildElement && isSourceFile) GetComment(pChildElement->NextSibling(), id);
+      }
     }
     pChildElement = pChildElement->NextSiblingElement("string");
   }
@@ -211,9 +221,11 @@ std::string GetCurrTime()
   std::string strTime(64, '\0');
   time_t now = std::time(0);
   struct std::tm* gmtm = std::gmtime(&now);
-  if (gmtm != NULL) {
+
+  if (gmtm != NULL)
+  {
     sprintf(&strTime[0], "%04i-%02i-%02i %02i:%02i+0000", gmtm->tm_year + 1900, gmtm->tm_mon + 1,
-      gmtm->tm_mday, gmtm->tm_hour, gmtm->tm_min);
+            gmtm->tm_mday, gmtm->tm_hour, gmtm->tm_min);
   }
   return strTime;
 }
@@ -269,8 +281,10 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, bool bIsForeignLang)
 
     if ((id-previd >= 2) && !bIsForeignLang)
     {
-      if (id-previd == 2 && previd > -1) fprintf(pPOTFile,"#empty string with id %i\n", id-1);
-      if (id-previd > 2 && previd > -1) fprintf(pPOTFile,"#empty strings from id %i to %i\n", previd+1, id-1);
+      if (id-previd == 2 && previd > -1)
+        fprintf(pPOTFile,"#empty string with id %i\n", id-1);
+      if (id-previd > 2 && previd > -1)
+        fprintf(pPOTFile,"#empty strings from id %i to %i\n", previd+1, id-1);
       bCommentWritten = true;
     }
     if (bCommentWritten) fprintf(pPOTFile, "\n");
@@ -318,8 +332,8 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, bool bIsForeignLang)
 int main(int argc, char* argv[])
 {
   // Basic syntax checking for "-x name" format
-  while ((argc > 2) && (argv[1][0] == '-') && (argv[1][1] != '\x00') && (argv[1][2] == '\x00')
-    && (argv[2][0] != '\x00') && (argv[2][0] != '-'))
+  while ((argc > 2) && (argv[1][0] == '-') && (argv[1][1] != '\x00') && (argv[1][2] == '\x00') &&
+         (argv[2][0] != '\x00') && (argv[2][0] != '-'))
   {
     switch (argv[1][1])
     {
@@ -355,7 +369,7 @@ int main(int argc, char* argv[])
   if (WorkingDir[0] != DirSepChar[0]) WorkingDir.append(DirSepChar);
 
   if (!loadXMLFile(xmlDocSourceInput, WorkingDir + "English" + DirSepChar + "strings.xml",
-    &mapSourceXmlId, true))
+      &mapSourceXmlId, true))
   {
     printf("Fatal error: no English source xml file found or it is corrupted\n");
     return 1;
@@ -373,7 +387,7 @@ int main(int argc, char* argv[])
     if (DirEntry->d_type == DT_DIR && DirEntry->d_name[0] != '.' && strcmp(DirEntry->d_name, "English"))
     {
       if (loadXMLFile(xmlDocForeignInput, WorkingDir + DirEntry->d_name + DirSepChar + "strings.xml",
-        &mapForeignXmlId, false))
+          &mapForeignXmlId, false))
       {
         ConvertXML2PO(WorkingDir + DirEntry->d_name + DirSepChar, FindLangCode(DirEntry->d_name).c_str(), true);
         langcounter++;
