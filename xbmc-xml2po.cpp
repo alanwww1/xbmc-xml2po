@@ -249,7 +249,7 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, bool bIsForeignLang)
   printf("%s\t\t", LCode.c_str()); 
 
   fprintf(pPOTFile,
-    "# Converted from xbmc strings.xml with xbmc-xml2po (by Team-XBMC)\n"
+    "# XBMC Media Center language file\n"
     "msgid \"\"\n"
     "msgstr \"\"\n"
     "\"Project-Id-Version: %s-%s\\n\"\n"
