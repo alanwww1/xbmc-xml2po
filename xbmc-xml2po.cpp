@@ -230,7 +230,8 @@ std::string GetCurrTime()
   return strTime;
 }
 
-bool  ConvertXML2PO(std::string LangDir, std::string LCode, bool bIsForeignLang)
+bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
+                    std::string PluralForm, bool bIsForeignLang)
 {
   int contextCount = 0;
   int stringCountSource = 0;
@@ -261,11 +262,13 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, bool bIsForeignLang)
     "\"Language: %s\\n\"\n"
     "\"MIME-Version: 1.0\\n\"\n"
     "\"Content-Type: text/plain; charset=UTF-8\\n\"\n"
-    "\"Content-Transfer-Encoding: 8bit\\n\"\n\n",
+    "\"Content-Transfer-Encoding: 8bit\\n\"\n"
+    "\"Plural-Forms: nplurals=%i; plural=%s\\n\"\n\n",
     (pProjectName != NULL) ? pProjectName : "xbmc-unnamed",
     (pVersionNumber != NULL) ?  pVersionNumber : "rev_unknown",
     GetCurrTime().c_str(),
-    (!LCode.empty()) ? LCode.c_str() : "LANGUAGE");
+    (!LCode.empty()) ? LCode.c_str() : "LANGUAGE",
+    nPlurals, PluralForm.c_str());
 
   int previd = -1;
   bool bCommentWritten = false;
@@ -374,7 +377,7 @@ int main(int argc, char* argv[])
     printf("Fatal error: no English source xml file found or it is corrupted\n");
     return 1;
   }
-  ConvertXML2PO(WorkingDir + "English" + DirSepChar, "en", false);
+  ConvertXML2PO(WorkingDir + "English" + DirSepChar, "en", 2, "(n != 1)", false);
 
   DIR* Dir;
   struct dirent *DirEntry;
@@ -389,7 +392,8 @@ int main(int argc, char* argv[])
       if (loadXMLFile(xmlDocForeignInput, WorkingDir + DirEntry->d_name + DirSepChar + "strings.xml",
           &mapForeignXmlId, false))
       {
-        ConvertXML2PO(WorkingDir + DirEntry->d_name + DirSepChar, FindLangCode(DirEntry->d_name).c_str(), true);
+        ConvertXML2PO(WorkingDir + DirEntry->d_name + DirSepChar, FindLangCode(DirEntry->d_name),
+                      GetnPlurals(DirEntry->d_name), GetPlurForm(DirEntry->d_name), true);
         langcounter++;
       }
     }
@@ -399,7 +403,7 @@ int main(int argc, char* argv[])
 
   if (bUnknownLangFound)
     printf("\nWarning: At least one language found with unpaired language code !\n"
-      "Please edit the .po file manually and correct the language code !\n"
+      "Please edit the .po file manually and correct the language code, plurals !\n"
       "Also please report this to alanwww1@xbmc.org if possible !\n\n");
   return 0;
 }
