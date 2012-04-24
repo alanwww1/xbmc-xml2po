@@ -259,10 +259,10 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
     "\"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
     "\"Last-Translator: FULL NAME <EMAIL@ADDRESS>\\n\"\n"
     "\"Language-Team: LANGUAGE\\n\"\n"
-    "\"Language: %s\\n\"\n"
     "\"MIME-Version: 1.0\\n\"\n"
     "\"Content-Type: text/plain; charset=UTF-8\\n\"\n"
     "\"Content-Transfer-Encoding: 8bit\\n\"\n"
+    "\"Language: %s\\n\"\n"
     "\"Plural-Forms: nplurals=%i; plural=%s\\n\"\n\n",
     (pProjectName != NULL) ? pProjectName : "xbmc-unnamed",
     (pVersionNumber != NULL) ?  pVersionNumber : "rev_unknown",
