@@ -213,6 +213,9 @@ void WriteStrLine(std::string prefix, std::string linkedString)
     size_t firstSpace = linkedString.find_first_of(" ");
     size_t lastSpace = linkedString.find_last_of(" ", 75);
 
+    if ((firstLF == std::string::npos) && (firstSpace == std::string::npos))
+      break;
+
     if (firstLF < 75)
     {
       fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, firstLF+2).c_str());
