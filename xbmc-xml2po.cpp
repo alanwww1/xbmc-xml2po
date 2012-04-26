@@ -196,6 +196,48 @@ bool WriteComments(int comm_id, bool bInterLine)
   return bHadCommWrite;
 }
 
+// we write str lines into the file and also break long ( >79 chars incuding LF) lines
+// this means we can only store 76 characters in one line
+void WriteStrLine(std::string prefix, std::string linkedString)
+{
+  fprintf (pPOTFile, "%s", prefix.c_str());
+  if (linkedString.length() + prefix.length() < 77 && linkedString.find("\\n") > 73)
+  {
+    fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
+    return;
+  }
+  fprintf (pPOTFile, "\"\"\n");
+  while (linkedString.length() > 76 || linkedString.find("\\n") < 74)
+  {
+    size_t firstLF = linkedString.find("\\n");
+    size_t firstSpace = linkedString.find_first_of(" ");
+    size_t lastSpace = linkedString.find_last_of(" ", 75);
+
+    if (firstLF < 75)
+    {
+      fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, firstLF+2).c_str());
+      linkedString = linkedString.substr(firstLF+2, linkedString.length()-firstLF-2);
+      continue;
+    }
+    if (firstSpace < 77)
+    {
+      if (firstSpace == 76)
+        lastSpace = 75;
+      fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, lastSpace+1).c_str());
+      linkedString = linkedString.substr(lastSpace+1, linkedString.length()-lastSpace-1);
+      continue;
+    }
+    if (firstLF > (firstSpace -1))
+      firstLF = firstSpace -1;
+    else
+      firstLF++;
+    fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, firstLF+1).c_str());
+    linkedString = linkedString.substr(firstLF+1, linkedString.length()-firstLF-1);
+  }
+  fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
+  return;
+}
+
 void PrintUsage()
 {
   printf
@@ -239,7 +281,7 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
   std::string  OutputPOFilename;
 
   OutputPOFilename = LangDir + "strings.po";
-  
+
   // Initalize the output po document
   pPOTFile = fopen (OutputPOFilename.c_str(),"wb");
   if (pPOTFile == NULL)
@@ -306,7 +348,7 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
       contextCount++;
     }
     //create msgid and msgstr lines
-    fprintf(pPOTFile,"msgid \"%s\"\n", value.c_str());
+    WriteStrLine("msgid ", value.c_str());
     if (bIsForeignLang)
     {
       itForeignXmlId = mapForeignXmlId.find(id);
