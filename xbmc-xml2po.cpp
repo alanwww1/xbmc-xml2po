@@ -211,31 +211,28 @@ void WriteStrLine(std::string prefix, std::string linkedString)
   {
     size_t firstLF = linkedString.find("\\n");
     size_t firstSpace = linkedString.find_first_of(" ");
-    size_t lastSpace = linkedString.find_last_of(" ", 75);
+    size_t lastSpace = linkedString.find_last_of(" ", 76);
+    size_t pos_before_break;
 
     if ((firstLF == std::string::npos) && (firstSpace == std::string::npos))
       break;
 
-    if (firstLF < 75)
+    if (firstSpace < 77 && firstLF > 74)
     {
-      fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, firstLF+2).c_str());
-      linkedString = linkedString.substr(firstLF+2, linkedString.length()-firstLF-2);
-      continue;
+      if (lastSpace == 76)
+        pos_before_break = 75;
+      else
+        pos_before_break = lastSpace;
     }
-    if (firstSpace < 77)
-    {
-      if (firstSpace == 76)
-        lastSpace = 75;
-      fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, lastSpace+1).c_str());
-      linkedString = linkedString.substr(lastSpace+1, linkedString.length()-lastSpace-1);
-      continue;
-    }
-    if (firstLF > (firstSpace -1))
-      firstLF = firstSpace -1;
-    else
-      firstLF++;
-    fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, firstLF+1).c_str());
-    linkedString = linkedString.substr(firstLF+1, linkedString.length()-firstLF-1);
+    else if (firstLF < 75 || firstLF <= firstSpace)
+        pos_before_break = firstLF+1;
+    else if (firstLF > firstSpace)
+       pos_before_break = firstSpace -1;
+
+    fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, pos_before_break+1).c_str());
+    linkedString = linkedString.substr(pos_before_break+1,
+                                       linkedString.length()-pos_before_break-1);
+
   }
   fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
   return;
@@ -358,7 +355,8 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
       if (itForeignXmlId != mapForeignXmlId.end())
       {
         stringCountForeign++;
-        fprintf(pPOTFile,"msgstr \"%s\"\n\n", itForeignXmlId->second.c_str());
+        WriteStrLine("msgstr ", itForeignXmlId->second.c_str());
+        fprintf(pPOTFile,"\n");
       }
       else fprintf(pPOTFile,"msgstr \"\"\n\n");
     }
