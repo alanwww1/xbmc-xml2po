@@ -90,7 +90,7 @@ all: ${OUTPUT}
 # Source files
 #****************************************************************************
 
-SRCS := tinyxml.cpp tinyxmlparser.cpp xbmc-xml2po.cpp tinyxmlerror.cpp tinystr.cpp
+SRCS := tinyxml.cpp tinyxmlparser.cpp xbmc-xml2po.cpp tinyxmlerror.cpp tinystr.cpp CharsetUtils.cpp
 
 # Add on the sources for libraries
 SRCS := ${SRCS}
@@ -124,7 +124,7 @@ clean:
 depend:
 	#makedepend ${INCS} ${SRCS}
 
-tinyxml.o: tinyxml.h tinystr.h
-tinyxmlparser.o: tinyxml.h tinystr.h
-str2xml.o: tinyxml.h tinystr.h
-tinyxmlerror.o: tinyxml.h tinystr.h
+tinyxml.o: tinyxml.h tinystr.h CharsetUtils.h
+tinyxmlparser.o: tinyxml.h tinystr.h CharsetUtils.h
+str2xml.o: tinyxml.h tinystr.h CharsetUtils.h
+tinyxmlerror.o: tinyxml.h tinystr.h CharsetUtils.h

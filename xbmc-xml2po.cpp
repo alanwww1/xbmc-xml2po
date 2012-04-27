@@ -32,10 +32,12 @@
 #endif
 
 #include "tinyxml.h"
+#include "CharsetUtils.h"
 #include <string>
 #include <map>
 #include "xbmclangcodes.h"
 #include "ctime"
+#include <algorithm>
 
 #ifdef _MSC_VER
   std::string DirSepChar = "\\";
@@ -70,6 +72,8 @@ std::map<int, std::string>::iterator itForeignXmlId;
 std::multimap<int, CCommentEntry> mapComments;
 std::multimap<int, CCommentEntry>::iterator itComments;
 std::pair<std::multimap<int, CCommentEntry>::iterator, std::multimap<int, CCommentEntry>::iterator> itRangeComments;
+std::string sourceXMLEncoding;
+std::string foreignXMLEncoding;
 
 // remove trailing and leading whitespaces
 std::string UnWhitespace(std::string strInput)
@@ -126,6 +130,25 @@ std::string EscapeLF(const char * StrToEscape)
   return strOut;
 }
 
+/*!
+ * Returns true if the encoding of the document is other then UTF-8.
+ * /param strEncoding Returns the encoding of the document. Empty if UTF-8
+ */
+bool GetEncoding(const TiXmlDocument* pDoc, std::string& strEncoding)
+{
+  const TiXmlNode* pNode=NULL;
+  while ((pNode=pDoc->IterateChildren(pNode)) && pNode->Type()!=TiXmlNode::TINYXML_DECLARATION) {}
+  if (!pNode) return false;
+  const TiXmlDeclaration* pDecl=pNode->ToDeclaration();
+  if (!pDecl) return false;
+  strEncoding=pDecl->Encoding();
+  if (strEncoding.compare("UTF-8") ==0 || strEncoding.compare("UTF8") == 0 ||
+    strEncoding.compare("utf-8") ==0 || strEncoding.compare("utf8") == 0)
+    strEncoding.clear();
+  std::transform(strEncoding.begin(), strEncoding.end(), strEncoding.begin(), ::toupper);
+  return !strEncoding.empty(); // Other encoding then UTF8?
+}
+
 bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
                   std::string> * pMapXmlStrings, bool isSourceFile)
 {
@@ -134,6 +157,8 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
     printf ("%s %s\n", pXMLDoc.ErrorDesc(), XMLFilename.c_str());
     return false;
   }
+  if (isSourceFile) GetEncoding(&pXMLDoc, sourceXMLEncoding);
+    else GetEncoding(&pXMLDoc, foreignXMLEncoding);
 
   TiXmlElement* pRootElement = pXMLDoc.RootElement();
   if (!pRootElement || pRootElement->NoChildren() || pRootElement->ValueTStr()!="strings")
@@ -217,8 +242,9 @@ std::string UnUtf8 (std::string& strIn, size_t &Pos76)
 
 // we write str lines into the file and also break long ( >79 chars incuding LF) lines
 // this means we can only store 76 characters in one line
-void WriteStrLine(std::string prefix, std::string linkedString)
+void WriteStrLine(std::string prefix, std::string linkedString, std::string encoding)
 {
+  linkedString = ToUTF8(encoding, linkedString);
   size_t UtfPos76;
   std::string unUtf8String = UnUtf8(linkedString, UtfPos76);
 
@@ -388,14 +414,14 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
       contextCount++;
     }
     //create msgid and msgstr lines
-    WriteStrLine("msgid ", value.c_str());
+    WriteStrLine("msgid ", value.c_str(), sourceXMLEncoding);
     if (bIsForeignLang)
     {
       itForeignXmlId = mapForeignXmlId.find(id);
       if (itForeignXmlId != mapForeignXmlId.end())
       {
         stringCountForeign++;
-        WriteStrLine("msgstr ", itForeignXmlId->second.c_str());
+        WriteStrLine("msgstr ", itForeignXmlId->second.c_str(), foreignXMLEncoding);
         fprintf(pPOTFile,"\n");
       }
       else fprintf(pPOTFile,"msgstr \"\"\n\n");
