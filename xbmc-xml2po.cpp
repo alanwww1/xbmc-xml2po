@@ -196,23 +196,50 @@ bool WriteComments(int comm_id, bool bInterLine)
   return bHadCommWrite;
 }
 
+// clear string from utf8 continuation bytes. Only leading bytes stay in
+std::string UnUtf8 (std::string& strIn, size_t &Pos76)
+{
+  size_t counter = 0;
+  Pos76 = std::string::npos;
+  std::string strOut;
+  for (std::string::iterator it=strIn.begin(); it < strIn.end(); it++)
+  {
+    if ( (*it & 0xC0) != 0x80)
+    {
+      strOut += *it;
+      if (counter == 76)
+        Pos76 = it-strIn.begin();
+      counter++;
+    }
+  }
+  return strOut;
+}
+
 // we write str lines into the file and also break long ( >79 chars incuding LF) lines
 // this means we can only store 76 characters in one line
 void WriteStrLine(std::string prefix, std::string linkedString)
 {
+  size_t UtfPos76;
+  std::string unUtf8String = UnUtf8(linkedString, UtfPos76);
+
   fprintf (pPOTFile, "%s", prefix.c_str());
-  if (linkedString.length() + prefix.length() < 77 && linkedString.find("\\n") > 73)
+  if (unUtf8String.length() + prefix.length() < 77 && unUtf8String.find("\\n") > 73)
   {
     fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
     return;
   }
   fprintf (pPOTFile, "\"\"\n");
-  while (linkedString.length() > 76 || linkedString.find("\\n") < 74)
+  while (unUtf8String.length() > 76 || unUtf8String.find("\\n") < 74)
   {
-    size_t firstLF = linkedString.find("\\n");
-    size_t firstSpace = linkedString.find_first_of(" ");
-    size_t lastSpace = linkedString.find_last_of(" ", 76);
+    size_t firstLF = unUtf8String.find("\\n");
+    size_t firstSpace = unUtf8String.find_first_of(" ");
+    size_t lastSpace = unUtf8String.find_last_of(" ", 76);
+    size_t firstLFReal = linkedString.find("\\n");
+    size_t firstSpaceReal = linkedString.find_first_of(" ");
+    size_t lastSpaceReal = linkedString.find_last_of(" ", UtfPos76);
+
     size_t pos_before_break;
+    size_t real_pos_before_break;
 
     if ((firstLF == std::string::npos) && (firstSpace == std::string::npos))
       break;
@@ -220,19 +247,32 @@ void WriteStrLine(std::string prefix, std::string linkedString)
     if (firstSpace < 77 && firstLF > 74)
     {
       if (lastSpace == 76)
-        pos_before_break = 75;
+      {
+        pos_before_break = lastSpace-1;
+        real_pos_before_break = lastSpaceReal-1;
+      }
       else
+      {
         pos_before_break = lastSpace;
+        real_pos_before_break =lastSpaceReal;
+      }
     }
     else if (firstLF < 75 || firstLF <= firstSpace)
+    {
         pos_before_break = firstLF+1;
+        real_pos_before_break = firstLFReal+1;
+    }
     else if (firstLF > firstSpace)
+    {
        pos_before_break = firstSpace -1;
+       real_pos_before_break =firstSpaceReal-1;
+    }
 
-    fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, pos_before_break+1).c_str());
-    linkedString = linkedString.substr(pos_before_break+1,
-                                       linkedString.length()-pos_before_break-1);
-
+    fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, real_pos_before_break+1).c_str());
+    linkedString = linkedString.substr(real_pos_before_break+1,
+                                       linkedString.length()-real_pos_before_break-1);
+    unUtf8String = unUtf8String.substr(pos_before_break+1,
+                                       unUtf8String.length()-pos_before_break-1);
   }
   fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
   return;
