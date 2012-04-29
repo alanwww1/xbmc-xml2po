@@ -244,33 +244,39 @@ std::string UnUtf8 (std::string& strIn, size_t &Pos76)
 // this means we can only store 76 characters in one line
 void WriteStrLine(std::string prefix, std::string linkedString, std::string encoding)
 {
+//  printf ("%s\n", linkedString.c_str());
   linkedString = ToUTF8(encoding, linkedString);
   size_t UtfPos76;
   std::string unUtf8String = UnUtf8(linkedString, UtfPos76);
 
   fprintf (pPOTFile, "%s", prefix.c_str());
-  if (unUtf8String.length() + prefix.length() < 77 && unUtf8String.find("\\n") > 73)
+  if (unUtf8String.length() + prefix.length() < 77 && unUtf8String.find("\\n") > 73 &&
+      unUtf8String.find("[CR]") > 71)
   {
     fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
     return;
   }
   fprintf (pPOTFile, "\"\"\n");
-  while (unUtf8String.length() > 76 || unUtf8String.find("\\n") < 74)
+  while (unUtf8String.length() > 76 || unUtf8String.find("\\n") < 74 ||
+         unUtf8String.find("[CR]") < 72)
   {
     size_t firstLF = unUtf8String.find("\\n");
+    size_t firstCR = unUtf8String.find("[CR]");
     size_t firstSpace = unUtf8String.find_first_of(" ");
     size_t lastSpace = unUtf8String.find_last_of(" ", 76);
     size_t firstLFReal = linkedString.find("\\n");
+    size_t firstCRReal = linkedString.find("[CR]");
     size_t firstSpaceReal = linkedString.find_first_of(" ");
     size_t lastSpaceReal = linkedString.find_last_of(" ", UtfPos76);
 
     size_t pos_before_break;
     size_t real_pos_before_break;
 
-    if ((firstLF == std::string::npos) && (firstSpace == std::string::npos))
+    if ((firstLF == std::string::npos) && (firstSpace == std::string::npos) &&
+        (firstCR == std::string::npos))
       break;
 
-    if (firstSpace < 77 && firstLF > 74)
+    if (firstSpace < 77 && firstLF > 74 && firstCR > 72)
     {
       if (lastSpace == 76)
       {
@@ -283,12 +289,12 @@ void WriteStrLine(std::string prefix, std::string linkedString, std::string enco
         real_pos_before_break =lastSpaceReal;
       }
     }
-    else if (firstLF < 75 || firstLF <= firstSpace)
+    else if (firstLF < 75 || firstLF <= firstSpace || firstCR < 73 || firstCR <= firstSpace)
     {
-        pos_before_break = firstLF+1;
-        real_pos_before_break = firstLFReal+1;
+        pos_before_break = firstLF < firstCR ? firstLF+1 : firstCR+3;
+        real_pos_before_break = firstLF < firstCR ? firstLFReal+1 : firstCRReal+3;
     }
-    else if (firstLF > firstSpace)
+    else if (firstLF > firstSpace && firstCR > firstSpace)
     {
        pos_before_break = firstSpace -1;
        real_pos_before_break =firstSpaceReal-1;
