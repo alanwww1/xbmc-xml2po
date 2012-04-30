@@ -244,7 +244,6 @@ std::string UnUtf8 (std::string& strIn, size_t &Pos76)
 // this means we can only store 76 characters in one line
 void WriteStrLine(std::string prefix, std::string linkedString, std::string encoding)
 {
-//  printf ("%s\n", linkedString.c_str());
   linkedString = ToUTF8(encoding, linkedString);
   size_t UtfPos76;
   std::string unUtf8String = UnUtf8(linkedString, UtfPos76);
@@ -478,7 +477,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  printf("\nXBMC-XML2PO by Team XBMC\n");
+  printf("\nXBMC-XML2PO v0.9 by Team XBMC\n");
   printf("\nResults:\n\n");
   printf("Langcode\tString match\tAuto contexts\tOutput file\n");
   printf("--------------------------------------------------------------\n");

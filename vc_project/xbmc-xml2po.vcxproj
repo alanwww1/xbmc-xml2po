@@ -36,7 +36,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>$(VCInstallDir)include;$(VCInstallDir)atlmfc\include;$(WindowsSdkDir)include;$(FrameworkSDKDir)\include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -60,20 +62,32 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\CharsetUtils.cpp" />
     <ClCompile Include="..\tinystr.cpp" />
     <ClCompile Include="..\tinyxml.cpp" />
     <ClCompile Include="..\tinyxmlerror.cpp" />
     <ClCompile Include="..\tinyxmlparser.cpp" />
     <ClCompile Include="..\xbmc-xml2po.cpp" />
+    <ClCompile Include="libiconv\iconv.c" />
+    <ClCompile Include="libiconv\localcharset.c" />
+    <ClCompile Include="libiconv\relocatable.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\CharsetUtils.h" />
     <ClInclude Include="..\dirent.h" />
     <ClInclude Include="..\tinystr.h" />
     <ClInclude Include="..\tinyxml.h" />
     <ClInclude Include="..\xbmclangcodes.h" />
+    <ClInclude Include="libiconv\include\config.h" />
+    <ClInclude Include="libiconv\include\iconv.h" />
+    <ClInclude Include="libiconv\localcharset.h" />
+    <ClInclude Include="libiconv\relocatable.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="libiconv\libiconv.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

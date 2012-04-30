@@ -21,7 +21,11 @@
 
 #include <string>
 #include <string.h>
-#include <iconv.h>
+#ifdef _MSC_VER
+  #include "vc_project/libiconv/include/iconv.h"
+#else
+  #include <iconv.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 
