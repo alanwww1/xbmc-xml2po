@@ -51,6 +51,9 @@ FILE * pPOTFile;
 char* pSourceDirectory = NULL;
 char* pProjectName =NULL;
 char* pVersionNumber = NULL;
+char* pBreaklineOption = NULL;
+
+bool bBreakLines;
 
 std::string WorkingDir;
 
@@ -245,10 +248,17 @@ std::string UnUtf8 (std::string& strIn, size_t &Pos76)
 void WriteStrLine(std::string prefix, std::string linkedString, std::string encoding)
 {
   linkedString = ToUTF8(encoding, linkedString);
+  fprintf (pPOTFile, "%s", prefix.c_str());
+
+  if (!bBreakLines)
+  {
+    fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
+    return;
+  }
+
   size_t UtfPos76;
   std::string unUtf8String = UnUtf8(linkedString, UtfPos76);
 
-  fprintf (pPOTFile, "%s", prefix.c_str());
   if (unUtf8String.length() + prefix.length() < 77 && unUtf8String.find("\\n") > 73 &&
       unUtf8String.find("[CR]") > 71)
   {
@@ -448,6 +458,7 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
 
 int main(int argc, char* argv[])
 {
+  bBreakLines = false; // By default we don't break lines
   // Basic syntax checking for "-x name" format
   while ((argc > 2) && (argv[1][0] == '-') && (argv[1][1] != '\x00') && (argv[1][2] == '\x00') &&
          (argv[2][0] != '\x00') && (argv[2][0] != '-'))
@@ -466,6 +477,10 @@ int main(int argc, char* argv[])
         --argc; ++argv;
         pVersionNumber = argv[1];
         break;
+      case 'b':
+        --argc; ++argv;
+        pBreaklineOption = argv[1];
+        break;
     }
     ++argv; --argc;
   }
@@ -476,6 +491,9 @@ int main(int argc, char* argv[])
     PrintUsage();
     return 1;
   }
+
+  if (pBreaklineOption != NULL)
+    bBreakLines = true;
 
   printf("\nXBMC-XML2PO v0.9 by Team XBMC\n");
   printf("\nResults:\n\n");
