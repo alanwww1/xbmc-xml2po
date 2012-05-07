@@ -26,7 +26,7 @@
 #endif
 
 #define _GL_USE_STDLIB_ALLOC 1
-#include "C:\Users\Atti\xbmc-xml2po\vc_project\libiconv\include\config.h"
+#include "include\config.h"
 
 /* Specification.  */
 #include "relocatable.h"
