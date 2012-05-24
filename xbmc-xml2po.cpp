@@ -51,9 +51,6 @@ FILE * pPOTFile;
 char* pSourceDirectory = NULL;
 char* pProjectName =NULL;
 char* pVersionNumber = NULL;
-char* pBreaklineOption = NULL;
-
-bool bBreakLines;
 
 std::string WorkingDir;
 
@@ -67,7 +64,6 @@ public:
   bool bInterLineComment;
 };
 
-std::multimap<std::string, int> multimapSourceXmlStrings;
 std::map<int, std::string> mapSourceXmlId;
 std::map<int, std::string>::iterator itSourceXmlId;
 std::map<int, std::string> mapForeignXmlId;
@@ -189,8 +185,6 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
       {
         pValue = pChildElement->FirstChild()->Value();
         valueString = EscapeLF(pValue);
-        if (isSourceFile)
-          multimapSourceXmlStrings.insert(std::pair<std::string,int>( valueString,id));
 
         (*pMapXmlStrings)[id] = valueString;
 
@@ -224,97 +218,11 @@ bool WriteComments(int comm_id, bool bInterLine)
   return bHadCommWrite;
 }
 
-// clear string from utf8 continuation bytes. Only leading bytes stay in
-std::string UnUtf8 (std::string& strIn, size_t &Pos76)
-{
-  size_t counter = 0;
-  Pos76 = std::string::npos;
-  std::string strOut;
-  for (std::string::iterator it=strIn.begin(); it < strIn.end(); it++)
-  {
-    if ( (*it & 0xC0) != 0x80)
-    {
-      strOut += *it;
-      if (counter == 76)
-        Pos76 = it-strIn.begin();
-      counter++;
-    }
-  }
-  return strOut;
-}
-
-// we write str lines into the file and also break long ( >79 chars incuding LF) lines
-// this means we can only store 76 characters in one line
+// we write str lines into the file
 void WriteStrLine(std::string prefix, std::string linkedString, std::string encoding)
 {
   linkedString = ToUTF8(encoding, linkedString);
   fprintf (pPOTFile, "%s", prefix.c_str());
-
-  if (!bBreakLines)
-  {
-    fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
-    return;
-  }
-
-  size_t UtfPos76;
-  std::string unUtf8String = UnUtf8(linkedString, UtfPos76);
-
-  if (unUtf8String.length() + prefix.length() < 77 && unUtf8String.find("\\n") > 73 &&
-      unUtf8String.find("[CR]") > 71)
-  {
-    fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
-    return;
-  }
-  fprintf (pPOTFile, "\"\"\n");
-  while (unUtf8String.length() > 76 || unUtf8String.find("\\n") < 74 ||
-         unUtf8String.find("[CR]") < 72)
-  {
-    size_t firstLF = unUtf8String.find("\\n");
-    size_t firstCR = unUtf8String.find("[CR]");
-    size_t firstSpace = unUtf8String.find_first_of(" ");
-    size_t lastSpace = unUtf8String.find_last_of(" ", 76);
-    size_t firstLFReal = linkedString.find("\\n");
-    size_t firstCRReal = linkedString.find("[CR]");
-    size_t firstSpaceReal = linkedString.find_first_of(" ");
-    size_t lastSpaceReal = linkedString.find_last_of(" ", UtfPos76);
-
-    size_t pos_before_break;
-    size_t real_pos_before_break;
-
-    if ((firstLF == std::string::npos) && (firstSpace == std::string::npos) &&
-        (firstCR == std::string::npos))
-      break;
-
-    if (firstSpace < 77 && firstLF > 74 && firstCR > 72)
-    {
-      if (lastSpace == 76)
-      {
-        pos_before_break = lastSpace-1;
-        real_pos_before_break = lastSpaceReal-1;
-      }
-      else
-      {
-        pos_before_break = lastSpace;
-        real_pos_before_break =lastSpaceReal;
-      }
-    }
-    else if (firstLF < 75 || firstLF <= firstSpace || firstCR < 73 || firstCR <= firstSpace)
-    {
-        pos_before_break = firstLF < firstCR ? firstLF+1 : firstCR+3;
-        real_pos_before_break = firstLF < firstCR ? firstLFReal+1 : firstCRReal+3;
-    }
-    else if (firstLF > firstSpace && firstCR > firstSpace)
-    {
-       pos_before_break = firstSpace -1;
-       real_pos_before_break =firstSpaceReal-1;
-    }
-
-    fprintf (pPOTFile, "\"%s\"\n", linkedString.substr(0, real_pos_before_break+1).c_str());
-    linkedString = linkedString.substr(real_pos_before_break+1,
-                                       linkedString.length()-real_pos_before_break-1);
-    unUtf8String = unUtf8String.substr(pos_before_break+1,
-                                       unUtf8String.length()-pos_before_break-1);
-  }
   fprintf (pPOTFile, "\"%s\"\n", linkedString.c_str());
   return;
 }
@@ -356,7 +264,6 @@ std::string GetCurrTime()
 bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
                     std::string PluralForm, bool bIsForeignLang)
 {
-  int contextCount = 0;
   int stringCountSource = 0;
   int stringCountForeign = 0;
   std::string  OutputPOFilename;
@@ -416,18 +323,12 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
     if (bCommentWritten) fprintf(pPOTFile, "\n");
 
     //create comment, including string id
-    fprintf(pPOTFile,"#: id:%i\n", id);
+    fprintf(pPOTFile,"msgctxt \"#%i\"\n", id);
 
     //write comment originally placed next to the string entry
     //convert it into #. style gettext comment
     if (!bIsForeignLang) WriteComments(id, false);
 
-    if (multimapSourceXmlStrings.count(value) > 1) // if we have multiple IDs for the same string value
-    {
-      //create autogenerated context message for multiple msgid entries
-      fprintf(pPOTFile,"msgctxt \"Auto context with id %i\"\n", id);
-      contextCount++;
-    }
     //create msgid and msgstr lines
     WriteStrLine("msgid ", value.c_str(), sourceXMLEncoding);
     if (bIsForeignLang)
@@ -449,7 +350,6 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
   fclose(pPOTFile);
 
   printf("%i\t\t", bIsForeignLang ? stringCountForeign : stringCountSource);
-  printf("%i\t\t", contextCount);
   printf("%s\n", OutputPOFilename.erase(0,WorkingDir.length()).c_str());
 
   mapForeignXmlId.clear();
@@ -458,7 +358,6 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
 
 int main(int argc, char* argv[])
 {
-  bBreakLines = false; // By default we don't break lines
   // Basic syntax checking for "-x name" format
   while ((argc > 2) && (argv[1][0] == '-') && (argv[1][1] != '\x00') && (argv[1][2] == '\x00') &&
          (argv[2][0] != '\x00') && (argv[2][0] != '-'))
@@ -477,10 +376,6 @@ int main(int argc, char* argv[])
         --argc; ++argv;
         pVersionNumber = argv[1];
         break;
-      case 'b':
-        --argc; ++argv;
-        pBreaklineOption = argv[1];
-        break;
     }
     ++argv; --argc;
   }
@@ -492,12 +387,9 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  if (pBreaklineOption != NULL)
-    bBreakLines = true;
-
-  printf("\nXBMC-XML2PO v0.9 by Team XBMC\n");
+  printf("\nXBMC-XML2PO v0.95 by Team XBMC\n");
   printf("\nResults:\n\n");
-  printf("Langcode\tString match\tAuto contexts\tOutput file\n");
+  printf("Langcode\tString match\tOutput file\n");
   printf("--------------------------------------------------------------\n");
 
   WorkingDir = pSourceDirectory;

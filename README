@@ -1,4 +1,4 @@
-XBMC-XML2PO 0.9 by Team XBMC 2012
+XBMC-XML2PO 0.95 by Team XBMC 2012
 
 This command-line utility is for converting XBMC strings.xml files into strings.po
 and strings.pot files used from XBMC Frodo and can be used directly in
@@ -19,6 +19,7 @@ xbmc-xml2po.exe -s language -p xbmc.core -v FRODO_GIT
 With any issues, please report to alanwww1@xbmc.org
 
 Version History:
-0.8 - Initial version, working on Linux, Windows with batch convert capabilities
-0.9 - Addded automatic conversion to utf8, format long lines with breaking them,
-      write plural form into language file.
+0.8  - Initial version, working on Linux, Windows with batch convert capabilities
+0.9  - Addded automatic conversion to utf8, format long lines with breaking them,
+       write plural form into language file.
+0.95 - Handle new format (id in msgctx field) PO files, reverted line breaking
