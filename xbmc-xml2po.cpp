@@ -71,6 +71,8 @@ std::string WorkingDir;
 std::string ProjRootDir;
 std::string ProjName;
 std::string ProjVersion;
+std::string ProjTextName;
+std::string ProjProvider;
 int projType;
 bool bhasLFWritten;
 
@@ -345,7 +347,7 @@ bool loadAddonXMLFile (std::string AddonXMLFilename)
     ProjName = "xbmc-unnamed";
   }
   else
-    ProjName = pMainAttrId;
+    ProjName = EscapeLF(pMainAttrId);
 
   pMainAttrId=pRootElement->Attribute("version");
   if (!pMainAttrId)
@@ -354,7 +356,25 @@ bool loadAddonXMLFile (std::string AddonXMLFilename)
     ProjVersion = "rev_unknown";
   }
   else
-    ProjVersion = pMainAttrId;
+    ProjVersion = EscapeLF(pMainAttrId);
+
+  pMainAttrId=pRootElement->Attribute("name");
+  if (!pMainAttrId)
+  {
+    printf ("warning: No addon name was available in addon.xml file: %s\n", AddonXMLFilename.c_str());
+    ProjTextName = "unknown";
+  }
+  else
+    ProjTextName = EscapeLF(pMainAttrId);
+
+  pMainAttrId=pRootElement->Attribute("provider-name");
+  if (!pMainAttrId)
+  {
+    printf ("warning: No addon provider was available in addon.xml file: %s\n", AddonXMLFilename.c_str());
+    ProjProvider = "unknown";
+  }
+  else
+    ProjProvider = EscapeLF(pMainAttrId);
 
   std::string strAttrToSearch = "xbmc.addon.metadata";
 
@@ -368,7 +388,7 @@ bool loadAddonXMLFile (std::string AddonXMLFilename)
     std::string strLang = pChildSummElement->Attribute("lang");
     if (pChildSummElement->FirstChild())
     {
-      std::string strValue = pChildSummElement->FirstChild()->Value();
+      std::string strValue = EscapeLF(pChildSummElement->FirstChild()->Value());
       mapAddonXMLData[strLang].strSummary = strValue;
     }
     pChildSummElement = pChildSummElement->NextSiblingElement("summary");
@@ -380,7 +400,7 @@ bool loadAddonXMLFile (std::string AddonXMLFilename)
     std::string strLang = pChildDescElement->Attribute("lang");
     if (pChildDescElement->FirstChild())
     {
-      std::string strValue = pChildDescElement->FirstChild()->Value();
+      std::string strValue = EscapeLF(pChildDescElement->FirstChild()->Value());
       mapAddonXMLData[strLang].strDescription = strValue;
     }
     pChildDescElement = pChildDescElement->NextSiblingElement("description");
@@ -392,7 +412,7 @@ bool loadAddonXMLFile (std::string AddonXMLFilename)
     std::string strLang = pChildDisclElement->Attribute("lang");
     if (pChildDisclElement->FirstChild())
     {
-      std::string strValue = pChildDisclElement->FirstChild()->Value();
+      std::string strValue = EscapeLF(pChildDisclElement->FirstChild()->Value());
       mapAddonXMLData[strLang].strDisclaimer = strValue;
     }
     pChildDisclElement = pChildDisclElement->NextSiblingElement("disclaimer");
@@ -483,6 +503,7 @@ bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
 
   fprintf(pPOTFile,
     "# XBMC Media Center language file\n"
+    "%s%s%s%s%s"
     "msgid \"\"\n"
     "msgstr \"\"\n"
     "\"Project-Id-Version: %s-%s\\n\"\n"
@@ -496,6 +517,11 @@ bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
     "\"Content-Transfer-Encoding: 8bit\\n\"\n"
     "\"Language: %s\\n\"\n"
     "\"Plural-Forms: nplurals=%i; plural=%s\\n\"\n",
+    (projType == CORE || projType == UNKNOWN) ? "" : "# Addon Name: ",
+    (projType == CORE || projType == UNKNOWN) ? "" : ProjTextName.c_str(),
+    (projType == CORE || projType == UNKNOWN) ? "" : "\n# Addon Provider: ",
+    (projType == CORE || projType == UNKNOWN) ? "" : ProjProvider.c_str(),
+    (projType == CORE || projType == UNKNOWN) ? "" : "\n",
     ProjName.c_str(),
     ProjVersion.c_str(),
     GetCurrTime().c_str(),
@@ -670,8 +696,10 @@ int main(int argc, char* argv[])
   }
 
   printf ("Project type detected:\t%s\n", strprojType.c_str());
-  printf ("\nProject name:\t\t%s\n", ProjName.c_str());
+  printf ("\nProject name:\t\t%s\n", ProjTextName.c_str());
+  printf ("Project id:\t\t%s\n", ProjName.c_str());
   printf ("Project version:\t%s\n", ProjVersion.c_str());
+  printf ("Project provider:\t%s\n", ProjProvider.c_str());
 
   if (!loadXMLFile(xmlDocSourceInput, WorkingDir + "English" + DirSepChar + "strings.xml",
       &mapSourceXmlId, true))
