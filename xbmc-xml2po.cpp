@@ -38,6 +38,16 @@
 #include "xbmclangcodes.h"
 #include "ctime"
 #include <algorithm>
+#include <sys/stat.h>
+
+enum
+{
+  SKIN = 0,
+  ADDON = 1,
+  CORE = 2,
+  ADDON_NOSTRINGS = 3,
+  UNKNOWN = 4
+};
 
 #ifdef _MSC_VER
   std::string DirSepChar = "\\";
@@ -49,10 +59,13 @@
 
 FILE * pPOTFile;
 char* pSourceDirectory = NULL;
-char* pProjectName =NULL;
-char* pVersionNumber = NULL;
 
 std::string WorkingDir;
+std::string ProjRootDir;
+std::string ProjName;
+std::string ProjVersion;
+int projType;
+bool bhasLFWritten;
 
 TiXmlDocument xmlDocSourceInput;
 TiXmlDocument xmlDocForeignInput;
@@ -64,15 +77,25 @@ public:
   bool bInterLineComment;
 };
 
+struct CAddonXMLEntry
+{
+  std::string strSummary;
+  std::string strDescription;
+  std::string strDisclaimer;
+};
+
 std::map<int, std::string> mapSourceXmlId;
 std::map<int, std::string>::iterator itSourceXmlId;
 std::map<int, std::string> mapForeignXmlId;
 std::map<int, std::string>::iterator itForeignXmlId;
+std::map<std::string, CAddonXMLEntry> mapAddonXMLData;
+std::map<std::string, CAddonXMLEntry>::iterator itAddonXMLData;
 std::multimap<int, CCommentEntry> mapComments;
 std::multimap<int, CCommentEntry>::iterator itComments;
 std::pair<std::multimap<int, CCommentEntry>::iterator, std::multimap<int, CCommentEntry>::iterator> itRangeComments;
 std::string sourceXMLEncoding;
 std::string foreignXMLEncoding;
+std::string addonXMLEncoding;
 
 // remove trailing and leading whitespaces
 std::string UnWhitespace(std::string strInput)
@@ -108,6 +131,94 @@ void GetComment(const TiXmlNode *pCommentNode, int id)
     }
     pCommentNode = pCommentNode->NextSibling();
   }
+}
+
+void WriteLF(FILE* pfile)
+{
+  if (!bhasLFWritten)
+  {
+    bhasLFWritten = true;
+    fprintf (pfile, "\n");
+  }
+};
+
+std::string RemoveSlash(std::string strIn)
+{
+  if (strIn[strIn.size()-1] != DirSepChar[0])
+    return strIn;
+  return strIn.substr(0,strIn.size()-2);
+}
+
+std::string AddSlash(std::string strIn)
+{
+  if (strIn[strIn.size()-1] == DirSepChar[0])
+    return strIn;
+  return strIn + DirSepChar;
+}
+
+std::string GetDirAtLevel(std::string strIn, int Level)
+{
+  if (Level == 0)
+    return strIn;
+  for (int i=0; i<Level;i++)
+  {
+    strIn = strIn.substr(0, RemoveSlash(strIn).find_last_of(DirSepChar[0]) +1);
+  }
+  return strIn;
+}
+
+bool FileExist(std::string filename) 
+{
+  FILE* pfileToTest = fopen (filename.c_str(),"rb");
+  if (pfileToTest == NULL)
+    return false;
+  fclose(pfileToTest);
+  return true;
+}
+
+bool LoadCoreVersion(std::string filename)
+{
+  std::string strBuffer;
+  FILE * file;
+
+  file = fopen(filename.c_str(), "rb");
+  if (!file)
+    return false;
+
+  fseek(file, 0, SEEK_END);
+  int64_t fileLength = ftell(file);
+  fseek(file, 0, SEEK_SET);
+
+  if (fileLength < 10)
+    {
+      fclose(file);
+      printf("non valid length found for GUIInfoManager file");
+      return false;
+    }
+
+  strBuffer.resize(fileLength+1);
+
+  unsigned int readBytes =  fread(&strBuffer[1], 1, fileLength, file);
+  fclose(file);
+
+  if (readBytes != fileLength)
+  {
+    printf("actual read data differs from file size, for GUIInfoManager file");
+    return false;
+  }
+  size_t startpos = strBuffer.find("#define VERSION_MAJOR ") + 22;
+  size_t endpos = strBuffer.find_first_of(" \n\r", startpos);
+  ProjVersion = strBuffer.substr(startpos, endpos-startpos);
+  ProjVersion += ".";
+
+  startpos = strBuffer.find("#define VERSION_MINOR ") + 22;
+  endpos = strBuffer.find_first_of(" \n\r", startpos);
+  ProjVersion += strBuffer.substr(startpos, endpos-startpos);
+
+  startpos = strBuffer.find("#define VERSION_TAG \"") + 21;
+  endpos = strBuffer.find_first_of(" \n\r\"", startpos);
+  ProjVersion += strBuffer.substr(startpos, endpos-startpos);
+  return true;
 }
 
 std::string EscapeLF(const char * StrToEscape)
@@ -198,25 +309,109 @@ bool loadXMLFile (TiXmlDocument &pXMLDoc, std::string XMLFilename, std::map<int,
   return true;
 }
 
-bool WriteComments(int comm_id, bool bInterLine)
+bool loadAddonXMLFile (std::string AddonXMLFilename)
 {
-  bool bHadCommWrite = false;
-  itComments = mapComments.find(comm_id);
-  if (itComments != mapComments.end()) // check if we have at least one comment for the xml id
+  TiXmlDocument xmlAddonXML;
+
+  if (!xmlAddonXML.LoadFile(AddonXMLFilename.c_str()))
   {
-    itRangeComments = mapComments.equal_range(comm_id);
-    for (itComments = itRangeComments.first; itComments != itRangeComments.second;
-         ++itComments)
-         {
-           if (bInterLine == itComments->second.bInterLineComment)
-           {
-             bHadCommWrite = true;
-             fprintf(pPOTFile,bInterLine ? "#%s\n": "#. %s\n", itComments->second.text.c_str());
-           }
-         }
+    printf ("%s %s\n", xmlAddonXML.ErrorDesc(), (WorkingDir + "addon.xml").c_str());
+    return false;
   }
-  return bHadCommWrite;
+
+  GetEncoding(&xmlAddonXML, addonXMLEncoding);
+
+  TiXmlElement* pRootElement = xmlAddonXML.RootElement();
+
+  if (!pRootElement || pRootElement->NoChildren() || pRootElement->ValueTStr()!="addon")
+  {
+    printf ("error: No root element called: \"addon\" or no child found in AddonXML file: %s\n",
+            AddonXMLFilename.c_str());
+    return false;
+  }
+  const char* pMainAttrId = NULL;
+
+  pMainAttrId=pRootElement->Attribute("id");
+  if (!pMainAttrId)
+  {
+    printf ("warning: No addon name was available in addon.xml file: %s\n", AddonXMLFilename.c_str());
+    ProjName = "xbmc-unnamed";
+  }
+  else
+    ProjName = pMainAttrId;
+
+  pMainAttrId=pRootElement->Attribute("version");
+  if (!pMainAttrId)
+  {
+    printf ("warning: No version name was available in addon.xml file: %s\n", AddonXMLFilename.c_str());
+    ProjVersion = "rev_unknown";
+  }
+  else
+    ProjVersion = pMainAttrId;
+
+  std::string strAttrToSearch = "xbmc.addon.metadata";
+
+  const TiXmlElement *pChildElement = pRootElement->FirstChildElement("extension");
+  while (pChildElement && strcmp(pChildElement->Attribute("point"), "xbmc.addon.metadata") != 0)
+    pChildElement = pChildElement->NextSiblingElement("extension");
+
+  const TiXmlElement *pChildSummElement = pChildElement->FirstChildElement("summary");
+  while (pChildSummElement)
+  {
+    std::string strLang = pChildSummElement->Attribute("lang");
+    if (pChildSummElement->FirstChild())
+    {
+      std::string strValue = pChildSummElement->FirstChild()->Value();
+      mapAddonXMLData[strLang].strSummary = strValue;
+    }
+    pChildSummElement = pChildSummElement->NextSiblingElement("summary");
+  }
+
+  const TiXmlElement *pChildDescElement = pChildElement->FirstChildElement("description");
+  while (pChildDescElement)
+  {
+    std::string strLang = pChildDescElement->Attribute("lang");
+    if (pChildDescElement->FirstChild())
+    {
+      std::string strValue = pChildDescElement->FirstChild()->Value();
+      mapAddonXMLData[strLang].strDescription = strValue;
+    }
+    pChildDescElement = pChildDescElement->NextSiblingElement("description");
+  }
+
+  const TiXmlElement *pChildDisclElement = pChildElement->FirstChildElement("disclaimer");
+  while (pChildDisclElement)
+  {
+    std::string strLang = pChildDisclElement->Attribute("lang");
+    if (pChildDisclElement->FirstChild())
+    {
+      std::string strValue = pChildDisclElement->FirstChild()->Value();
+      mapAddonXMLData[strLang].strDisclaimer = strValue;
+    }
+    pChildDisclElement = pChildDisclElement->NextSiblingElement("disclaimer");
+  }
+
+  return true;
 }
+
+void WriteComments(int comm_id, bool bInterLine)
+{
+  itComments = mapComments.find(comm_id);
+  if (itComments == mapComments.end()) // check if we have at least one comment for the xml id
+    return;
+
+  itRangeComments = mapComments.equal_range(comm_id);
+  for (itComments = itRangeComments.first; itComments != itRangeComments.second;++itComments)
+  {
+    if (bInterLine == itComments->second.bInterLineComment)
+    {
+      WriteLF(pPOTFile);
+      fprintf(pPOTFile,bInterLine ? "#%s\n": "#. %s\n", itComments->second.text.c_str());
+    }
+  }
+
+  return;
+};
 
 // we write str lines into the file
 void WriteStrLine(std::string prefix, std::string linkedString, std::string encoding)
@@ -261,7 +456,7 @@ std::string GetCurrTime()
   return strTime;
 }
 
-bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
+bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
                     std::string PluralForm, bool bIsForeignLang)
 {
   int stringCountSource = 0;
@@ -293,43 +488,78 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
     "\"Content-Type: text/plain; charset=UTF-8\\n\"\n"
     "\"Content-Transfer-Encoding: 8bit\\n\"\n"
     "\"Language: %s\\n\"\n"
-    "\"Plural-Forms: nplurals=%i; plural=%s\\n\"\n\n",
-    (pProjectName != NULL) ? pProjectName : "xbmc-unnamed",
-    (pVersionNumber != NULL) ?  pVersionNumber : "rev_unknown",
+    "\"Plural-Forms: nplurals=%i; plural=%s\\n\"\n",
+    ProjName.c_str(),
+    ProjVersion.c_str(),
     GetCurrTime().c_str(),
     (!LCode.empty()) ? LCode.c_str() : "LANGUAGE",
     nPlurals, PluralForm.c_str());
+    bhasLFWritten =false;
+
+  if (!mapAddonXMLData["en"].strSummary.empty())
+  {
+    WriteLF(pPOTFile);
+    WriteStrLine("msgctxt ", "Addon Summary", addonXMLEncoding);
+    WriteStrLine("msgid ", mapAddonXMLData["en"].strSummary.c_str(), addonXMLEncoding);
+    WriteStrLine("msgstr ", LCode == "en" ? "": mapAddonXMLData[LCode].strSummary.c_str(), addonXMLEncoding);
+    bhasLFWritten =false;
+  }
+
+  if (!mapAddonXMLData["en"].strDescription.empty())
+  {
+    WriteLF(pPOTFile);
+    WriteStrLine("msgctxt ", "Addon Description", addonXMLEncoding);
+    WriteStrLine("msgid ", mapAddonXMLData["en"].strDescription.c_str(), addonXMLEncoding);
+    WriteStrLine("msgstr ", LCode == "en" ? "": mapAddonXMLData[LCode].strDescription.c_str(), addonXMLEncoding);
+    bhasLFWritten =false;
+  }
+
+  if (!mapAddonXMLData["en"].strDisclaimer.empty())
+  {
+    WriteLF(pPOTFile);
+    WriteStrLine("msgctxt ", "Addon Disclaimer", addonXMLEncoding);
+    WriteStrLine("msgid ", mapAddonXMLData["en"].strDisclaimer.c_str(), addonXMLEncoding);
+    WriteStrLine("msgstr ", LCode == "en" ? "": mapAddonXMLData[LCode].strDisclaimer.c_str(), addonXMLEncoding);
+    bhasLFWritten =false;
+  }
+
+  if (projType == ADDON_NOSTRINGS)
+    return true;
 
   int previd = -1;
-  bool bCommentWritten = false;
+
   for (itSourceXmlId = mapSourceXmlId.begin(); itSourceXmlId != mapSourceXmlId.end(); itSourceXmlId++)
   {
     int id = itSourceXmlId->first;
     std::string value = itSourceXmlId->second;
+    bhasLFWritten = false;
 
     //create comment lines, if empty string id or ids found and
     //re-create original xml comments between entries. Only for the source language
-    bCommentWritten = false;
-    if (!bIsForeignLang) bCommentWritten = WriteComments(previd, true);
+    if (!bIsForeignLang)
+      WriteComments(previd, true);
 
     if ((id-previd >= 2) && !bIsForeignLang)
     {
+      WriteLF(pPOTFile);
       if (id-previd == 2 && previd > -1)
         fprintf(pPOTFile,"#empty string with id %i\n", id-1);
       if (id-previd > 2 && previd > -1)
         fprintf(pPOTFile,"#empty strings from id %i to %i\n", previd+1, id-1);
-      bCommentWritten = true;
     }
-    if (bCommentWritten) fprintf(pPOTFile, "\n");
-
-    //create comment, including string id
-    fprintf(pPOTFile,"msgctxt \"#%i\"\n", id);
+    bhasLFWritten = false;
 
     //write comment originally placed next to the string entry
     //convert it into #. style gettext comment
-    if (!bIsForeignLang) WriteComments(id, false);
+    if (!bIsForeignLang)
+      WriteComments(id, false);
+
+    //create msgctxt, including the string id
+    WriteLF(pPOTFile);
+    fprintf(pPOTFile,"msgctxt \"#%i\"\n", id);
 
     //create msgid and msgstr lines
+    WriteLF(pPOTFile);
     WriteStrLine("msgid ", value.c_str(), sourceXMLEncoding);
     if (bIsForeignLang)
     {
@@ -338,15 +568,15 @@ bool  ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
       {
         stringCountForeign++;
         WriteStrLine("msgstr ", itForeignXmlId->second.c_str(), foreignXMLEncoding);
-        fprintf(pPOTFile,"\n");
       }
-      else fprintf(pPOTFile,"msgstr \"\"\n\n");
+      else fprintf(pPOTFile,"msgstr \"\"\n");
     }
-    else fprintf(pPOTFile,"msgstr \"\"\n\n");
+    else fprintf(pPOTFile,"msgstr \"\"\n");
 
     stringCountSource++;
     previd =id;
   }
+
   fclose(pPOTFile);
 
   printf("%i\t\t", bIsForeignLang ? stringCountForeign : stringCountSource);
@@ -368,14 +598,6 @@ int main(int argc, char* argv[])
         --argc; ++argv;
         pSourceDirectory = argv[1];
         break;
-      case 'p':
-        --argc; ++argv;
-        pProjectName = argv[1];
-        break;
-      case 'v':
-        --argc; ++argv;
-        pVersionNumber = argv[1];
-        break;
     }
     ++argv; --argc;
   }
@@ -388,12 +610,61 @@ int main(int argc, char* argv[])
   }
 
   printf("\nXBMC-XML2PO v0.95 by Team XBMC\n");
-  printf("\nResults:\n\n");
-  printf("Langcode\tString match\tOutput file\n");
-  printf("--------------------------------------------------------------\n");
 
-  WorkingDir = pSourceDirectory;
-  if (WorkingDir[0] != DirSepChar[0]) WorkingDir.append(DirSepChar);
+  ProjRootDir = pSourceDirectory;
+  ProjRootDir = AddSlash(ProjRootDir);
+
+  if ((FileExist(ProjRootDir + "addon.xml")) &&
+      (FileExist(ProjRootDir + "resources" + DirSepChar + "language" +
+       DirSepChar + "English" + DirSepChar + "strings.xml")))
+    projType = ADDON;
+  else if ((FileExist(ProjRootDir + "addon.xml")) &&
+           (FileExist(ProjRootDir + "language" + DirSepChar + "English" +
+            DirSepChar + "strings.xml")))
+    projType = SKIN;
+  else if (FileExist(ProjRootDir + "addon.xml"))
+    projType = ADDON_NOSTRINGS;
+  else if (FileExist(ProjRootDir + "xbmc" + DirSepChar + "GUIInfoManager.h"))
+    projType = CORE;
+  else
+    projType = UNKNOWN;
+
+  std::string strprojType;
+
+  switch (projType)
+  {
+    case ADDON:
+      strprojType = "Addon with translatable strings";
+      WorkingDir = ProjRootDir + DirSepChar + "resources" + DirSepChar + "language"+ DirSepChar;
+      break;
+    case SKIN:
+      strprojType = "Skin addon";
+      WorkingDir = ProjRootDir + DirSepChar + "language"+ DirSepChar;
+      break;
+    case ADDON_NOSTRINGS:
+      strprojType = "Addon without any translatable strings";
+      break;
+    case CORE:
+      strprojType = "XBMC core";
+      WorkingDir = ProjRootDir + DirSepChar + "language" + DirSepChar;
+      break;
+    default:
+      strprojType = "Unknown";
+      WorkingDir = ProjRootDir;
+      break;
+  }
+
+  if (projType == ADDON || projType == ADDON_NOSTRINGS || projType == SKIN)
+    loadAddonXMLFile(ProjRootDir + "addon.xml");
+  else if (projType == CORE)
+  {
+    ProjName = "xbmc.core";
+    LoadCoreVersion(ProjRootDir + "xbmc" + DirSepChar + "GUIInfoManager.h");
+  }
+
+  printf ("Project type detected:\t%s\n", strprojType.c_str());
+  printf ("\nProject name:\t\t%s\n", ProjName.c_str());
+  printf ("Project version:\t%s\n", ProjVersion.c_str());
 
   if (!loadXMLFile(xmlDocSourceInput, WorkingDir + "English" + DirSepChar + "strings.xml",
       &mapSourceXmlId, true))
@@ -401,6 +672,11 @@ int main(int argc, char* argv[])
     printf("Fatal error: no English source xml file found or it is corrupted\n");
     return 1;
   }
+
+  printf("\nResults:\n\n");
+  printf("Langcode\tString match\tOutput file\n");
+  printf("--------------------------------------------------------------\n");
+
   ConvertXML2PO(WorkingDir + "English" + DirSepChar, "en", 2, "(n != 1)", false);
 
   DIR* Dir;
