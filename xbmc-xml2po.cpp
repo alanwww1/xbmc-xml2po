@@ -49,6 +49,13 @@ enum
   UNKNOWN = 4
 };
 
+struct CLangData
+{
+  std::string LLangCode;
+  int LPlurals;
+  std::string LPlurForm;
+};
+
 #ifdef _MSC_VER
   std::string DirSepChar = "\\";
   #include "dirent.h"
@@ -683,19 +690,29 @@ int main(int argc, char* argv[])
   struct dirent *DirEntry;
   Dir = opendir(WorkingDir.c_str());
   int langcounter =0;
+  std::map<std::string, CLangData> mapLangList;
+  std::map<std::string, CLangData>::iterator itmapLangList;
 
   while((DirEntry=readdir(Dir)))
   {
-    std::string LName = "";
     if (DirEntry->d_type == DT_DIR && DirEntry->d_name[0] != '.' && strcmp(DirEntry->d_name, "English"))
     {
-      if (loadXMLFile(xmlDocForeignInput, WorkingDir + DirEntry->d_name + DirSepChar + "strings.xml",
-          &mapForeignXmlId, false))
-      {
-        ConvertXML2PO(WorkingDir + DirEntry->d_name + DirSepChar, FindLangCode(DirEntry->d_name),
-                      GetnPlurals(DirEntry->d_name), GetPlurForm(DirEntry->d_name), true);
-        langcounter++;
-      }
+      CLangData Langdat;
+      Langdat.LLangCode = FindLangCode(DirEntry->d_name);
+      Langdat.LPlurals = GetnPlurals(DirEntry->d_name);
+      Langdat.LPlurForm = GetPlurForm(DirEntry->d_name);
+      mapLangList [DirEntry->d_name] = Langdat;
+    }
+  }
+
+  for (itmapLangList = mapLangList.begin(); itmapLangList != mapLangList.end(); itmapLangList++)
+  {
+    if (loadXMLFile(xmlDocForeignInput, WorkingDir + itmapLangList->first + DirSepChar + "strings.xml",
+        &mapForeignXmlId, false))
+    {
+      ConvertXML2PO(WorkingDir + itmapLangList->first + DirSepChar, itmapLangList->second.LLangCode,
+                    itmapLangList->second.LPlurals, itmapLangList->second.LPlurForm, true);
+      langcounter++;
     }
   }
 
