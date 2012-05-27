@@ -518,10 +518,11 @@ bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
 
   fprintf(pPOTFile,
     "# XBMC Media Center language file\n"
-    "%s%s%s%s%s"
+    "%s"
+    "%s%s%s%s%s%s%s%s%s"
     "msgid \"\"\n"
     "msgstr \"\"\n"
-    "\"Project-Id-Version: %s-%s\\n\"\n"
+    "\"Project-Id-Version: %s\\n\"\n"
     "\"Report-Msgid-Bugs-To: alanwww1@xbmc.org\\n\"\n"
     "\"POT-Creation-Date: %s\\n\"\n"
     "\"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\\n\"\n"
@@ -532,13 +533,17 @@ bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
     "\"Content-Transfer-Encoding: 8bit\\n\"\n"
     "\"Language: %s\\n\"\n"
     "\"Plural-Forms: nplurals=%i; plural=%s\\n\"\n",
+    (projType == CORE) ? ("XBMC " + ProjVersion + "\n").c_str() : "",
     (projType == CORE || projType == UNKNOWN) ? "" : "# Addon Name: ",
     (projType == CORE || projType == UNKNOWN) ? "" : ProjTextName.c_str(),
+    (projType == CORE || projType == UNKNOWN) ? "" : "\n# Addon id: ",
+    (projType == CORE || projType == UNKNOWN) ? "" : ProjName.c_str(),
+    (projType == CORE || projType == UNKNOWN) ? "" : "\n# Addon version: ",
+    (projType == CORE || projType == UNKNOWN) ? "" : ProjVersion.c_str(),
     (projType == CORE || projType == UNKNOWN) ? "" : "\n# Addon Provider: ",
     (projType == CORE || projType == UNKNOWN) ? "" : ProjProvider.c_str(),
     (projType == CORE || projType == UNKNOWN) ? "" : "\n",
-    ProjName.c_str(),
-    ProjVersion.c_str(),
+    (projType == CORE) ? "XBMC-Main" : "XBMC-Addons",
     GetCurrTime().c_str(),
     (!LCode.empty()) ? LCode.c_str() : "LANGUAGE",
     nPlurals, PluralForm.c_str());
@@ -710,6 +715,8 @@ int main(int argc, char* argv[])
     loadAddonXMLFile(ProjRootDir + "addon.xml");
   else if (projType == CORE)
   {
+    ProjTextName = "XBMC Core";
+    ProjProvider = "Team XBMC";
     ProjName = "xbmc.core";
     LoadCoreVersion(ProjRootDir + "xbmc" + DirSepChar + "GUIInfoManager.h");
   }
