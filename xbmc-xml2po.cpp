@@ -151,6 +151,21 @@ void WriteLF(FILE* pfile)
   }
 };
 
+int MakeDir(std::string Path)
+{
+  return mkdir(Path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+};
+
+bool DirExists(std::string Path)
+{
+  #ifdef _MSC_VER
+    return (INVALID_FILE_ATTRIBUTES == GetFileAttributes(Path) && GetLastError()==ERROR_FILE_NOT_FOUND);
+  #else
+    struct stat st;
+    return (stat(Path.c_str(), &st) == 0);
+  #endif
+};
+
 std::string RemoveSlash(std::string strIn)
 {
   if (strIn[strIn.size()-1] != DirSepChar[0])
@@ -486,8 +501,7 @@ std::string GetCurrTime()
 bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
                     std::string PluralForm, bool bIsForeignLang)
 {
-  int stringCountSource = 0;
-  int stringCountForeign = 0;
+  int stringCount = 0;
   std::string  OutputPOFilename;
 
   OutputPOFilename = LangDir + "strings.po";
@@ -536,6 +550,7 @@ bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
     WriteStrLine("msgid ", mapAddonXMLData["en"].strSummary.c_str(), addonXMLEncoding);
     WriteStrLine("msgstr ", LCode == "en" ? "": mapAddonXMLData[LCode].strSummary.c_str(), addonXMLEncoding);
     bhasLFWritten =false;
+    stringCount++;
   }
 
   if (!mapAddonXMLData["en"].strDescription.empty())
@@ -545,6 +560,7 @@ bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
     WriteStrLine("msgid ", mapAddonXMLData["en"].strDescription.c_str(), addonXMLEncoding);
     WriteStrLine("msgstr ", LCode == "en" ? "": mapAddonXMLData[LCode].strDescription.c_str(), addonXMLEncoding);
     bhasLFWritten =false;
+    stringCount++;
   }
 
   if (!mapAddonXMLData["en"].strDisclaimer.empty())
@@ -554,10 +570,11 @@ bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
     WriteStrLine("msgid ", mapAddonXMLData["en"].strDisclaimer.c_str(), addonXMLEncoding);
     WriteStrLine("msgstr ", LCode == "en" ? "": mapAddonXMLData[LCode].strDisclaimer.c_str(), addonXMLEncoding);
     bhasLFWritten =false;
+    stringCount++;
   }
 
-  if (projType == ADDON_NOSTRINGS)
-    return true;
+//  if (projType == ADDON_NOSTRINGS)
+//    return true;
 
   int previd = -1;
 
@@ -599,20 +616,21 @@ bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
       itForeignXmlId = mapForeignXmlId.find(id);
       if (itForeignXmlId != mapForeignXmlId.end())
       {
-        stringCountForeign++;
+        stringCount++;
         WriteStrLine("msgstr ", itForeignXmlId->second.c_str(), foreignXMLEncoding);
       }
       else fprintf(pPOTFile,"msgstr \"\"\n");
     }
     else fprintf(pPOTFile,"msgstr \"\"\n");
 
-    stringCountSource++;
+    if (!bIsForeignLang)
+      stringCount++;
     previd =id;
   }
 
   fclose(pPOTFile);
 
-  printf("%i\t\t", bIsForeignLang ? stringCountForeign : stringCountSource);
+  printf("%i\t\t", stringCount);
   printf("%s\n", OutputPOFilename.erase(0,WorkingDir.length()).c_str());
 
   mapForeignXmlId.clear();
@@ -701,7 +719,33 @@ int main(int argc, char* argv[])
   printf ("Project version:\t%s\n", ProjVersion.c_str());
   printf ("Project provider:\t%s\n", ProjProvider.c_str());
 
-  if (!loadXMLFile(xmlDocSourceInput, WorkingDir + "English" + DirSepChar + "strings.xml",
+  if (projType == ADDON_NOSTRINGS)
+  {
+    if (!DirExists(ProjRootDir + "resources") && (MakeDir(ProjRootDir + "resources") != 0))
+    {
+      printf ("fatal error: not able to create resources directory at dir: %s", ProjRootDir.c_str());
+      return 1;
+    }
+    if (!DirExists(ProjRootDir + "resources" + DirSepChar + "language") &&
+      (MakeDir(ProjRootDir + "resources"+ DirSepChar + "language") != 0))
+    {
+      printf ("fatal error: not able to create language directory at dir: %s", (ProjRootDir + "resources").c_str());
+      return 1;
+    }
+    WorkingDir = ProjRootDir + "resources"+ DirSepChar + "language" + DirSepChar;
+    for (itAddonXMLData = mapAddonXMLData.begin(); itAddonXMLData != mapAddonXMLData.end(); itAddonXMLData++)
+    {
+      if (!DirExists(WorkingDir + FindLang(itAddonXMLData->first)) && (MakeDir(WorkingDir +
+          FindLang(itAddonXMLData->first)) != 0))
+      {
+        printf ("fatal error: not able to create %s language directory at dir: %s", itAddonXMLData->first.c_str(),
+                WorkingDir.c_str());
+        return 1;
+      }
+    }
+  }
+
+  if (projType !=ADDON_NOSTRINGS && !loadXMLFile(xmlDocSourceInput, WorkingDir + "English" + DirSepChar + "strings.xml",
       &mapSourceXmlId, true))
   {
     printf("Fatal error: no English source xml file found or it is corrupted\n");
@@ -735,8 +779,11 @@ int main(int argc, char* argv[])
 
   for (itmapLangList = mapLangList.begin(); itmapLangList != mapLangList.end(); itmapLangList++)
   {
-    if (loadXMLFile(xmlDocForeignInput, WorkingDir + itmapLangList->first + DirSepChar + "strings.xml",
-        &mapForeignXmlId, false))
+    bool bRunConvert = false;;
+    if (projType == ADDON_NOSTRINGS || projType == ADDON || projType == SKIN)
+      bRunConvert = true;
+    if ((projType != ADDON_NOSTRINGS && loadXMLFile(xmlDocForeignInput, WorkingDir +
+        itmapLangList->first + DirSepChar + "strings.xml", &mapForeignXmlId, false)) || bRunConvert)
     {
       ConvertXML2PO(WorkingDir + itmapLangList->first + DirSepChar, itmapLangList->second.LLangCode,
                     itmapLangList->second.LPlurals, itmapLangList->second.LPlurForm, true);

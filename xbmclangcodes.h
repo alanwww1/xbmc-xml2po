@@ -25,7 +25,7 @@
 
 enum
 {
-  LANG_COUNT = 46,
+  LANG_COUNT = 47,
 };
 
 struct CLangcodes
@@ -73,6 +73,7 @@ CLangcodes Langcodes [LANG_COUNT] =
   {"Portuguese (Brazil)", "pt_BR", 2, "(n > 1)"},
   {"Romanian", "ro", 3, "(n==1?0:(((n%100>19)||((n%100==0)&&(n!=0)))?2:1))"},
   {"Russian", "ru", 3, "(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)"},
+  {"Northern Sami", "se", 2, "(n != 1)"},
   {"Serbian", "sr", 3, "(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)"},
   {"Serbian (Cyrillic)", "sr_RS", 3, "(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)"},
   {"Slovak", "sk", 3, "(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2"},
@@ -95,6 +96,16 @@ std::string FindLangCode(std::string LangToLook)
   }
   bUnknownLangFound = true;
   return "UNKNOWN";
+}
+
+std::string FindLang(std::string LangCode)
+{
+  for (int i=0; i<LANG_COUNT ; i++)
+  {
+    if (LangCode == Langcodes[i].Langcode) return Langcodes[i].Langname;
+  }
+  printf ("unknown language code found in addon.xml data. Language Code: %s", LangCode.c_str());
+  return "UNRECOGNIZED_" + LangCode;
 }
 
 int GetnPlurals(std::string LangToLook)
