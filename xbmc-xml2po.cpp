@@ -468,17 +468,18 @@ void PrintUsage()
 {
   printf
   (
-  "Usage: xbmc-xml2po -s <sourcedirectoryname> (-p <projectname>) (-v <version>)\n"
-  "parameter -s <name> for source root language directory, which contains the language dirs\n"
-  "parameter -p <name> for project name, eg. xbmc.skin.confluence\n"
-  "parameter -v <name> for project version, eg. FRODO_GIT251373f9c3\n\n"
+  "Usage: xbmc-xml2po -s <sourcedirectoryname>\n"
+  "parameter -s <name> for source root directory\n\n"
+  "The source directory for addons should be where the addon.xml file exists"
+  "For core language file, use the main xbmc source tree as a directory"
+
   );
 #ifdef _MSC_VER
   printf
   (
   "Note for Windows users: In case you have whitespace or any special character\n"
   "in any of the arguments, please use apostrophe around them. For example:\n"
-  "xbmc-xml2po.exe -s \"C:\\xbmc dir\\language\" -p xbmc.core -v Frodo_GIT\n"
+  "xbmc-xml2po.exe -s \"C:\\xbmc dir\\\"\n"
   );
 #endif
 return;
@@ -660,7 +661,7 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  printf("\nXBMC-XML2PO v0.95 by Team XBMC\n");
+  printf("\nXBMC-XML2PO v0.96 by Team XBMC\n");
 
   ProjRootDir = pSourceDirectory;
   ProjRootDir = AddSlash(ProjRootDir);
