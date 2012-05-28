@@ -151,15 +151,19 @@ void WriteLF(FILE* pfile)
   }
 };
 
-int MakeDir(std::string Path)
+bool MakeDir(std::string Path)
 {
-  return mkdir(Path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  #ifdef _MSC_VER
+    return CreateDirectory (Path.c_str(), NULL) != 0;
+  #else
+    return mkdir(Path.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) ==0;
+  #endif
 };
 
 bool DirExists(std::string Path)
 {
   #ifdef _MSC_VER
-    return (INVALID_FILE_ATTRIBUTES == GetFileAttributes(Path) && GetLastError()==ERROR_FILE_NOT_FOUND);
+    return !(INVALID_FILE_ATTRIBUTES == GetFileAttributes(Path.c_str()) && GetLastError()==ERROR_FILE_NOT_FOUND);
   #else
     struct stat st;
     return (stat(Path.c_str(), &st) == 0);
@@ -210,7 +214,7 @@ bool LoadCoreVersion(std::string filename)
     return false;
 
   fseek(file, 0, SEEK_END);
-  int64_t fileLength = ftell(file);
+  long fileLength = ftell(file);
   fseek(file, 0, SEEK_SET);
 
   if (fileLength < 10)
@@ -729,13 +733,13 @@ int main(int argc, char* argv[])
 
   if (projType == ADDON_NOSTRINGS)
   {
-    if (!DirExists(ProjRootDir + "resources") && (MakeDir(ProjRootDir + "resources") != 0))
+    if (!DirExists(ProjRootDir + "resources") && (!MakeDir(ProjRootDir + "resources")))
     {
       printf ("fatal error: not able to create resources directory at dir: %s", ProjRootDir.c_str());
       return 1;
     }
     if (!DirExists(ProjRootDir + "resources" + DirSepChar + "language") &&
-      (MakeDir(ProjRootDir + "resources"+ DirSepChar + "language") != 0))
+      (!MakeDir(ProjRootDir + "resources"+ DirSepChar + "language")))
     {
       printf ("fatal error: not able to create language directory at dir: %s", (ProjRootDir + "resources").c_str());
       return 1;
@@ -743,8 +747,8 @@ int main(int argc, char* argv[])
     WorkingDir = ProjRootDir + "resources"+ DirSepChar + "language" + DirSepChar;
     for (itAddonXMLData = mapAddonXMLData.begin(); itAddonXMLData != mapAddonXMLData.end(); itAddonXMLData++)
     {
-      if (!DirExists(WorkingDir + FindLang(itAddonXMLData->first)) && (MakeDir(WorkingDir +
-          FindLang(itAddonXMLData->first)) != 0))
+      if (!DirExists(WorkingDir + FindLang(itAddonXMLData->first)) && (!MakeDir(WorkingDir +
+          FindLang(itAddonXMLData->first))))
       {
         printf ("fatal error: not able to create %s language directory at dir: %s", itAddonXMLData->first.c_str(),
                 WorkingDir.c_str());
