@@ -402,7 +402,7 @@ bool loadAddonXMLFile (std::string AddonXMLFilename)
     pChildElement = pChildElement->NextSiblingElement("extension");
 
   const TiXmlElement *pChildSummElement = pChildElement->FirstChildElement("summary");
-  while (pChildSummElement)
+  while (pChildSummElement && pChildSummElement->FirstChild())
   {
     std::string strLang = pChildSummElement->Attribute("lang");
     if (pChildSummElement->FirstChild())
@@ -414,7 +414,7 @@ bool loadAddonXMLFile (std::string AddonXMLFilename)
   }
 
   const TiXmlElement *pChildDescElement = pChildElement->FirstChildElement("description");
-  while (pChildDescElement)
+  while (pChildDescElement && pChildDescElement->FirstChild())
   {
     std::string strLang = pChildDescElement->Attribute("lang");
     if (pChildDescElement->FirstChild())
@@ -426,7 +426,7 @@ bool loadAddonXMLFile (std::string AddonXMLFilename)
   }
 
   const TiXmlElement *pChildDisclElement = pChildElement->FirstChildElement("disclaimer");
-  while (pChildDisclElement)
+  while (pChildDisclElement && pChildDisclElement->FirstChild())
   {
     std::string strLang = pChildDisclElement->Attribute("lang");
     if (pChildDisclElement->FirstChild())
