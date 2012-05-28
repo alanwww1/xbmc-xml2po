@@ -599,12 +599,12 @@ bool ConvertXML2PO(std::string LangDir, std::string LCode, int nPlurals,
     if (!bIsForeignLang)
       WriteComments(previd, true);
 
-    if ((id-previd >= 2) && !bIsForeignLang)
+    if ((id-previd >= 2) && !bIsForeignLang && previd > -1)
     {
       WriteLF(pPOTFile);
-      if (id-previd == 2 && previd > -1)
+      if (id-previd == 2)
         fprintf(pPOTFile,"#empty string with id %i\n", id-1);
-      if (id-previd > 2 && previd > -1)
+      if (id-previd > 2)
         fprintf(pPOTFile,"#empty strings from id %i to %i\n", previd+1, id-1);
     }
     bhasLFWritten = false;
