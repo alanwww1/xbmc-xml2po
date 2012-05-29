@@ -21,6 +21,6 @@ Version History:
 0.9  - Addded automatic conversion to utf8, format long lines with breaking them,
        write plural form into language file.
 0.95 - Handle new format (id in msgctx field) PO files, reverted line breaking
-0.96 - Parsing of addon.xml file to automatic get of prohject data
+0.96 - Parsing of addon.xml file to automatic get of project data
        Handling of addons with no translatable files
        Processing language files in alphabetical order
